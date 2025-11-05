@@ -118,18 +118,6 @@
     @apply bg-background text-foreground;
   }
 }
-.bg {
-  background: linear-gradient(
-      to right,
-      rgba(255, 255, 255, 0.6),
-      rgba(255, 255, 255, 0.55),
-      rgba(255, 255, 255, 0.5),
-      rgba(255, 255, 255, 0.45),
-      rgba(255, 255, 255, 0.3)
-    ),
-    url("./assets/calendar.jpg");
-  background-size: cover;
-}
 
 @layer utilities {
   @keyframes slideInRight {
@@ -160,4 +148,17 @@
   .animate-slide-in-left {
     animation: slideInLeft 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   }
+}
+.bg {
+  background: linear-gradient(
+      to right,
+      color-mix(in oklch, var(--background) 90%, transparent),
+      color-mix(in oklch, var(--background) 75%, transparent),
+      color-mix(in oklch, var(--background) 60%, transparent),
+      color-mix(in oklch, var(--background) 45%, transparent),
+      color-mix(in oklch, var(--background) 30%, transparent)
+    ),
+    url("./assets/calendar.jpg");
+  background-size: cover;
+  background-position: center;
 }

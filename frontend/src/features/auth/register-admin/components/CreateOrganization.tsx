@@ -3,17 +3,11 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ChevronLeft, Wand2 } from "lucide-react";
+import { CreateOrganizationSchema } from "../../schemas";
 
-const stepTwoSchema = z.object({
-  organizationName: z.string().min(1, "Organization name is required"),
-  organizationCode: z.string().min(1, "Organization code is required"),
-  organizationDescription: z.string().optional(),
-});
+type CreateOrganization = z.infer<typeof CreateOrganizationSchema>;
 
-type StepTwoFormData = z.infer<typeof stepTwoSchema>;
-
-interface AdminStepTwoProps {
+interface CreateOrganizationProps {
   data: any;
   onNext: (data: Partial<any>) => void;
   onBack: () => void;
@@ -24,13 +18,13 @@ export const CreateOrganization = ({
   data,
   onNext,
   onBack,
-}: AdminStepTwoProps) => {
+}: CreateOrganizationProps) => {
   const {
     register,
     handleSubmit,
     formState: { errors, isValid },
-  } = useForm<StepTwoFormData>({
-    resolver: zodResolver(stepTwoSchema),
+  } = useForm<CreateOrganization>({
+    resolver: zodResolver(CreateOrganizationSchema),
     mode: "onChange",
     defaultValues: {
       organizationName: data.organizationName || "",
@@ -39,7 +33,7 @@ export const CreateOrganization = ({
     },
   });
 
-  const onSubmit = async (formData: StepTwoFormData) => {
+  const onSubmit = async (formData: CreateOrganization) => {
     onNext({
       organizationName: formData.organizationName,
       organizationCode: formData.organizationCode,

@@ -1,31 +1,58 @@
 import { createBrowserRouter, RouterProvider } from "react-router";
-import Layout from "@/features/root/Layout";
-import DefaultBanner from "./features/root/DefaultBanner";
-import { LoginCard } from "./features/auth/login/Login";
-import { RegisterCard } from "./features/auth/register-admin/Register";
+import Layout from "@/features/auth/AuthLayout";
+import DefaultBanner from "@/features/root/DefaultBanner";
+import { LoginCard } from "@/features/auth/login/Login";
+import { RegisterCard } from "@/features/auth/register-admin/Register";
+import Dashboard from "./components/ui/Dashboard";
+import { useAppDispatch } from "./lib/hook";
+import { useEffect } from "react";
+import PublicRoute from "./features/root/PublicRoute";
+import RootLayout from "./features/root/RootLayout";
 
 function App() {
-  const routes = createBrowserRouter([
+  const dispatch = useAppDispatch();
+
+  const router = createBrowserRouter([
     {
       path: "/",
       element: <Layout />,
       children: [
         {
           index: true,
-          element: <DefaultBanner />,
+          element: (
+            <PublicRoute>
+              <DefaultBanner />
+            </PublicRoute>
+          ),
         },
         {
           path: "login",
-          element: <LoginCard />,
+          element: (
+            <PublicRoute>
+              <LoginCard />
+            </PublicRoute>
+          ),
         },
         {
           path: "register-admin",
-          element: <RegisterCard />,
+          element: (
+            <PublicRoute>
+              <RegisterCard />
+            </PublicRoute>
+          ),
         },
       ],
     },
+    {
+      path: "in",
+      element: <RootLayout />,
+    },
   ]);
-  return <RouterProvider router={routes}></RouterProvider>;
+  useEffect(() => {
+    const user = localStorage.getItem("user");
+    if (user) dispatch.auth.setUser(JSON.parse(user));
+  }, []);
+  return <RouterProvider router={router} />;
 }
 
 export default App;

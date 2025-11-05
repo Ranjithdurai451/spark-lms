@@ -1,35 +1,22 @@
-"use client";
-
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Eye, EyeOff, Loader, CheckCircle2, Mail } from "lucide-react";
+import { Eye, EyeOff, CheckCircle2, Mail, Loader } from "lucide-react";
 import {
   InputOTP,
   InputOTPGroup,
   InputOTPSlot,
 } from "@/components/ui/input-otp";
+import { CreateAccountSchema } from "../../schemas";
+import { cn } from "@/lib/utils";
+import { useSendEmailVerificationOtp, useVerifyEmail } from "../../useAuth";
 
-const stepOneSchema = z.object({
-  email: z.string().email("Invalid email address"),
-  username: z
-    .string()
-    .min(3, "Username must be at least 3 characters")
-    .max(20, "Username must be at most 20 characters"),
-  password: z
-    .string()
-    .min(8, "Password must be at least 8 characters")
-    .regex(/[A-Z]/, "Password must contain an uppercase letter")
-    .regex(/[a-z]/, "Password must contain a lowercase letter")
-    .regex(/[0-9]/, "Password must contain a number"),
-});
+type CreateAccount = z.infer<typeof CreateAccountSchema>;
 
-type StepOneFormData = z.infer<typeof stepOneSchema>;
-
-interface AdminStepOneProps {
+interface CreateAccountProps {
   data: any;
   onNext: (data: Partial<any>) => void;
   onUpdate: (data: Partial<any>) => void;
@@ -39,24 +26,22 @@ export const CreateAccount = ({
   data,
   onNext,
   onUpdate,
-}: AdminStepOneProps) => {
-  const [showPassword, setShowPassword] = useState(false);
-  //   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [otpSent, setOtpSent] = useState(false);
+}: CreateAccountProps) => {
+  const [otpToken, setOtpToken] = useState("");
   const [otp, setOtp] = useState("");
-  const [isVerifying, setIsVerifying] = useState(false);
-  const [isSending, setIsSending] = useState(false);
-  const [emailVerified, setEmailVerified] = useState(
-    data.emailVerified || false
-  );
+  const [showPassword, setShowPassword] = useState(false);
+  const [emailVerified, setEmailVerified] = useState(!!data.emailVerified);
+  const [otpSent, setOtpSent] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [resendCooldown, setResendCooldown] = useState(0);
 
   const {
     register,
     handleSubmit,
-    formState: { errors, isValid },
     watch,
-  } = useForm<StepOneFormData>({
-    resolver: zodResolver(stepOneSchema),
+    formState: { errors, isValid },
+  } = useForm<CreateAccount>({
+    resolver: zodResolver(CreateAccountSchema),
     mode: "onChange",
     defaultValues: {
       email: data.email || "",
@@ -68,36 +53,72 @@ export const CreateAccount = ({
   const email = watch("email");
   const isEmailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
-  const handleSendOtp = async () => {
+  const { mutate: sendOtp, isPending: isSendingOtp } =
+    useSendEmailVerificationOtp();
+  const { mutate: verifyOtp, isPending: isVerifyingOtp } = useVerifyEmail();
+
+  // ⏱ Countdown for resend OTP
+  useEffect(() => {
+    let timer: number;
+    if (resendCooldown > 0) {
+      timer = setTimeout(() => setResendCooldown(resendCooldown - 1), 1000);
+    }
+    return () => clearTimeout(timer);
+  }, [resendCooldown]);
+
+  const handleSendOtp = () => {
     if (!isEmailValid) return;
-    setIsSending(true);
-    try {
-      await new Promise((resolve) => setTimeout(resolve, 800));
-      setOtpSent(true);
-    } finally {
-      setIsSending(false);
-    }
-  };
+    setErrorMsg(null);
 
-  const handleVerifyOtp = async () => {
-    setIsVerifying(true);
-    try {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      if (otp.length === 6) {
-        setEmailVerified(true);
-        onUpdate({ email, emailVerified: true });
-        setOtp("");
+    sendOtp(
+      { email },
+      {
+        onSuccess: (res) => {
+          setOtpToken(res.data?.otpToken ?? "");
+          setOtpSent(true);
+          setResendCooldown(30); // start 30s cooldown
+        },
+        onError: (error) => {
+          const msg =
+            error.response?.data?.message ||
+            "Failed to send OTP. Please try again.";
+          setErrorMsg(msg);
+        },
       }
-    } finally {
-      setIsVerifying(false);
-    }
+    );
   };
 
-  const onSubmit = async (formData: StepOneFormData) => {
+  const handleResendOtp = () => {
+    if (resendCooldown > 0) return;
+    handleSendOtp();
+  };
+
+  const handleVerifyOtp = () => {
+    if (otp.length !== 6 || !otpToken) return;
+    setErrorMsg(null);
+
+    verifyOtp(
+      { otp, token: otpToken },
+      {
+        onSuccess: () => {
+          setEmailVerified(true);
+          onUpdate({ email, emailVerified: true });
+        },
+        onError: (error) => {
+          const msg =
+            error.response?.data?.message || "Invalid or expired OTP.";
+          setErrorMsg(msg);
+        },
+      }
+    );
+  };
+
+  const onSubmit = (formData: CreateAccount) => {
     if (!emailVerified) {
-      alert("Please verify your email first");
+      setErrorMsg("Please verify your email first.");
       return;
     }
+
     onNext({
       email: formData.email,
       username: formData.username,
@@ -107,23 +128,20 @@ export const CreateAccount = ({
   };
 
   return (
-    <div className="p-4 flex flex-col gap-6 ">
-      <div className="space-y-2">
-        <h2 className="text-xl font-bold text-foreground">
-          Create Admin Account
-        </h2>
+    <div className="p-6 flex flex-col gap-6">
+      <div className="space-y-1">
+        <h2 className="text-xl font-bold">Create Admin Account</h2>
         <p className="text-sm text-muted-foreground">
-          Set up your account to get started with SparkLMS
+          Set up your admin credentials to continue
         </p>
       </div>
 
-      {/* Form */}
-      <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
-        {/* Email with OTP Verification */}
-        <div className="flex gap-3 flex-col">
+      <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-5">
+        {/* ---------- EMAIL + OTP ---------- */}
+        <div className="flex flex-col gap-2">
           <label
             htmlFor="email"
-            className="text-sm font-semibold text-foreground flex items-center gap-2"
+            className="text-sm font-semibold flex items-center gap-2"
           >
             <Mail className="w-4 h-4" />
             Email Address
@@ -136,22 +154,34 @@ export const CreateAccount = ({
               id="email"
               type="email"
               placeholder="you@example.com"
-              disabled={emailVerified}
+              disabled={emailVerified || otpSent}
               {...register("email")}
-              className=" bg-muted/50 transition-colors"
+              className={cn(
+                "bg-muted/50",
+                (emailVerified || otpSent) && "opacity-70"
+              )}
             />
-            {!emailVerified && isEmailValid && (
+            {!emailVerified && (
               <Button
                 type="button"
-                onClick={handleSendOtp}
-                disabled={otpSent || isSending}
-                size="lg"
-                className=" px-6 font-semibold whitespace-nowrap"
+                disabled={
+                  !isEmailValid ||
+                  isSendingOtp ||
+                  (otpSent && resendCooldown > 0)
+                }
+                onClick={otpSent ? handleResendOtp : handleSendOtp}
+                className="px-5 font-medium whitespace-nowrap"
               >
-                {isSending ? (
-                  <Loader className="w-4 h-4 animate-spin" />
+                {isSendingOtp ? (
+                  <>
+                    <Loader className="w-4 h-4 animate-spin mr-2" /> Sending...
+                  </>
                 ) : otpSent ? (
-                  "Sent"
+                  resendCooldown > 0 ? (
+                    `Resend (${resendCooldown}s)`
+                  ) : (
+                    "Resend OTP"
+                  )
                 ) : (
                   "Send OTP"
                 )}
@@ -165,44 +195,37 @@ export const CreateAccount = ({
           )}
         </div>
 
-        {/* OTP Input */}
-        {otpSent && !emailVerified && (
-          <div className="flex gap-3 flex-col p-4 bg-secondary rounded-lg border border-border animate-in fade-in slide-in-from-top-2 duration-300">
-            <label
-              htmlFor="otp"
-              className="text-sm font-semibold text-foreground"
-            >
-              Enter 6-Digit Code
+        {/* ---------- OTP FIELD ---------- */}
+        {!emailVerified && otpToken && (
+          <div className="flex justify-center items-center flex-col gap-3 bg-secondary/40 p-4 rounded-lg border border-border animate-in fade-in slide-in-from-top-2 duration-300">
+            <label className="text-sm font-semibold text-center">
+              Enter Verification Code
             </label>
-            <p className="text-xs text-muted-foreground">
-              We sent a verification code to {email}
+            <p className="text-xs text-muted-foreground text-center">
+              Check your inbox for the 6-digit code sent to <b>{email}</b>
             </p>
-            <div className="flex gap-2 justify-center py-2">
-              <InputOTP
-                maxLength={6}
-                value={otp}
-                onChange={(value: string) => setOtp(value)}
-              >
-                <InputOTPGroup>
-                  <InputOTPSlot index={0} />
-                  <InputOTPSlot index={1} />
-                  <InputOTPSlot index={2} />
-                  <InputOTPSlot index={3} />
-                  <InputOTPSlot index={4} />
-                  <InputOTPSlot index={5} />
-                </InputOTPGroup>
-              </InputOTP>
-            </div>
+
+            <InputOTP
+              maxLength={6}
+              value={otp}
+              onChange={(value: string) => setOtp(value)}
+            >
+              <InputOTPGroup>
+                {[...Array(6)].map((_, i) => (
+                  <InputOTPSlot key={i} index={i} />
+                ))}
+              </InputOTPGroup>
+            </InputOTP>
+
             <Button
               type="button"
               onClick={handleVerifyOtp}
-              disabled={otp.length !== 6 || isVerifying}
-              size="lg"
-              className="w-full  font-semibold"
+              disabled={otp.length !== 6 || isVerifyingOtp}
+              className="w-full"
             >
-              {isVerifying ? (
+              {isVerifyingOtp ? (
                 <>
-                  <Loader className="w-4 h-4 mr-2 animate-spin" />
+                  <Loader className="w-4 h-4 animate-spin mr-2" />
                   Verifying...
                 </>
               ) : (
@@ -211,14 +234,12 @@ export const CreateAccount = ({
             </Button>
           </div>
         )}
+
+        {/* ---------- USERNAME + PASSWORD ---------- */}
         {emailVerified && (
           <>
-            {/* Username */}
-            <div className="flex gap-3 flex-col">
-              <label
-                htmlFor="username"
-                className="text-sm font-semibold text-foreground"
-              >
+            <div className="flex flex-col gap-2">
+              <label htmlFor="username" className="text-sm font-semibold">
                 Username
               </label>
               <Input
@@ -226,7 +247,7 @@ export const CreateAccount = ({
                 type="text"
                 placeholder="johndoe"
                 {...register("username")}
-                className=" bg-muted/50 transition-colors"
+                className="bg-muted/50"
               />
               {errors.username && (
                 <p className="text-xs text-destructive font-medium">
@@ -235,12 +256,8 @@ export const CreateAccount = ({
               )}
             </div>
 
-            {/* Password */}
-            <div className="flex gap-3 flex-col">
-              <label
-                htmlFor="password"
-                className="text-sm font-semibold text-foreground"
-              >
+            <div className="flex flex-col gap-2">
+              <label htmlFor="password" className="text-sm font-semibold">
                 Password
               </label>
               <div className="relative">
@@ -249,12 +266,12 @@ export const CreateAccount = ({
                   type={showPassword ? "text" : "password"}
                   placeholder="••••••••"
                   {...register("password")}
-                  className="  bg-muted/50 transition-colors"
+                  className="bg-muted/50"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                 >
                   {showPassword ? (
                     <EyeOff className="w-4 h-4" />
@@ -264,7 +281,7 @@ export const CreateAccount = ({
                 </button>
               </div>
               <p className="text-xs text-muted-foreground">
-                At least 8 characters, 1 uppercase, 1 lowercase, 1 number
+                Must be 8+ chars, include upper, lower & a number.
               </p>
               {errors.password && (
                 <p className="text-xs text-destructive font-medium">
@@ -273,16 +290,17 @@ export const CreateAccount = ({
               )}
             </div>
 
-            {/* Submit Button */}
-            <Button
-              type="submit"
-              disabled={!isValid || !emailVerified}
-              size="lg"
-              className="w-full  font-semibold"
-            >
+            <Button type="submit" disabled={!isValid} className="w-full mt-2">
               Continue to Organization Setup
             </Button>
           </>
+        )}
+
+        {/* ---------- GLOBAL ERROR ---------- */}
+        {errorMsg && (
+          <p className="text-xs text-destructive font-medium text-center mt-1">
+            {errorMsg}
+          </p>
         )}
       </form>
     </div>

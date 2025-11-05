@@ -9,28 +9,33 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useRegisterAdmin } from "../../useAuth";
+import { useAppDispatch } from "@/lib/hook";
+import { useNavigate } from "react-router";
 
 interface InvitedEmail {
   email: string;
   role: "HR" | "Employee";
 }
 
-interface AdminStepThreeProps {
+interface AddMembersProps {
   data: any;
   onBack: () => void;
   onUpdate: (data: Partial<any>) => void;
 }
 
-export const AddMembers = ({ data, onBack, onUpdate }: AdminStepThreeProps) => {
+export const AddMembers = ({ data, onBack }: AddMembersProps) => {
   const [invitedEmails, setInvitedEmails] = useState<InvitedEmail[]>(
     data.invitedEmails || []
   );
   const [currentEmail, setCurrentEmail] = useState("");
   const [currentRole, setCurrentRole] = useState<"HR" | "Employee">("Employee");
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(currentEmail);
-
+  const dispatch = useAppDispatch();
+  const { mutate: registerAdmin, isPending: isSubmitting } = useRegisterAdmin();
+  const navigate = useNavigate();
   const addEmail = () => {
     if (
       isValidEmail &&
@@ -48,13 +53,34 @@ export const AddMembers = ({ data, onBack, onUpdate }: AdminStepThreeProps) => {
   };
 
   const handleSubmit = async () => {
-    setIsSubmitting(true);
-    try {
-      await new Promise((resolve) => setTimeout(resolve, 1200));
-      onUpdate({ invitedEmails });
-    } finally {
-      setIsSubmitting(false);
-    }
+    setErrorMsg(null);
+
+    const payload = {
+      email: data.email,
+      username: data.username,
+      password: data.password,
+      organizationName: data.organizationName,
+      organizationCode: data.organizationCode,
+      organizationDescription: data.organizationDescription,
+      invitedEmails,
+    };
+
+    registerAdmin(payload, {
+      onSuccess: (res) => {
+        if (res.data?.user) {
+          dispatch.auth.setUser(res.data?.user);
+          navigate("/in");
+        } else {
+          setErrorMsg("Something went wrong. Please try again.");
+        }
+      },
+      onError: (error: any) => {
+        const msg =
+          error.response?.data?.message ||
+          "Something went wrong. Please try again.";
+        setErrorMsg(msg);
+      },
+    });
   };
 
   return (
@@ -65,7 +91,7 @@ export const AddMembers = ({ data, onBack, onUpdate }: AdminStepThreeProps) => {
             Invite Team Members
           </h2>
           <p className="text-sm text-muted-foreground">
-            Add members to your organization
+            Add members to your organization before completing setup.
           </p>
         </div>
       </div>
@@ -95,7 +121,7 @@ export const AddMembers = ({ data, onBack, onUpdate }: AdminStepThreeProps) => {
               onValueChange={(value: any) => setCurrentRole(value)}
             >
               <SelectTrigger className="flex-1 bg-muted/50">
-                <SelectValue />
+                <SelectValue placeholder="Select role" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="HR">HR / Manager</SelectItem>
@@ -163,31 +189,41 @@ export const AddMembers = ({ data, onBack, onUpdate }: AdminStepThreeProps) => {
       </div>
 
       {/* Buttons */}
-      <div className="flex gap-3 pt-4">
-        <Button
-          type="button"
-          onClick={onBack}
-          variant="outline"
-          size="lg"
-          className="flex-1 font-semibold bg-transparent"
-        >
-          Back
-        </Button>
-        <Button
-          onClick={handleSubmit}
-          disabled={isSubmitting || invitedEmails.length === 0}
-          size="lg"
-          className="flex-1 font-semibold"
-        >
-          {isSubmitting ? (
-            <>
-              <Loader className="w-4 h-4 mr-2 animate-spin" />
-              Completing...
-            </>
-          ) : (
-            "Complete Setup"
-          )}
-        </Button>
+      <div className="flex flex-col gap-3 pt-4">
+        <div className="flex gap-3">
+          <Button
+            type="button"
+            onClick={onBack}
+            variant="outline"
+            size="lg"
+            className="flex-1 font-semibold bg-transparent"
+            disabled={isSubmitting}
+          >
+            Back
+          </Button>
+          <Button
+            onClick={handleSubmit}
+            disabled={isSubmitting || invitedEmails.length === 0}
+            size="lg"
+            className="flex-1 font-semibold"
+          >
+            {isSubmitting ? (
+              <>
+                <Loader className="w-4 h-4 mr-2 animate-spin" />
+                Completing...
+              </>
+            ) : (
+              "Complete Setup"
+            )}
+          </Button>
+        </div>
+
+        {/* Error Message */}
+        {errorMsg && (
+          <p className="text-xs text-destructive font-medium text-center mt-1">
+            {errorMsg}
+          </p>
+        )}
       </div>
     </div>
   );
