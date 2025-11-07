@@ -153,7 +153,7 @@ export const registerAdmin = async (
       include: { users: true },
     });
 
-    const adminUser = org.users.find((u) => u.email === email)!;
+    const adminUser = org.users.find((u: any) => u.email === email)!;
 
     // Default manager = admin
     const managerId = adminUser.id;
