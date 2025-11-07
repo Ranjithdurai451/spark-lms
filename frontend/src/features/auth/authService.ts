@@ -76,13 +76,11 @@ class AuthService {
   }
 
   /* ---------------- Reset Password ---------------- */
-  static async resetPassword(
-    token: string,
-    payload: {
-      newPassword: string;
-    }
-  ): Promise<ApiResponse> {
-    const { data } = await api.post(`/auth/reset-password/${token}`, payload);
+  static async resetPassword(payload: {
+    token: string;
+    newPassword: string;
+  }): Promise<ApiResponse> {
+    const { data } = await api.post("/auth/reset-password/", payload);
     return data;
   }
 

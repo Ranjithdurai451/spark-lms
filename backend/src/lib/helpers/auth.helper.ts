@@ -1,5 +1,5 @@
 import { JWT_SECRET } from "../constants";
-import jwt, { JwtPayload } from "jsonwebtoken";
+import jwt, { type JwtPayload } from "jsonwebtoken";
 
 export const createToken = <T extends object>(
   payload: T,

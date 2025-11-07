@@ -10,7 +10,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useRegisterAdmin } from "../../useAuth";
-import { useAppDispatch } from "@/lib/hook";
+import { useAppDispatch } from "@/lib/hooks";
 import { useNavigate } from "react-router";
 
 interface InvitedEmail {
@@ -84,7 +84,7 @@ export const AddMembers = ({ data, onBack }: AddMembersProps) => {
   };
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-3 p-4">
       <div className="flex items-start gap-4">
         <div className="space-y-2 flex-1">
           <h2 className="text-2xl font-bold text-foreground">

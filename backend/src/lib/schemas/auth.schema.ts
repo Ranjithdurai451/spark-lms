@@ -33,8 +33,21 @@ export const registerAdminSchema = z.object({
     )
     .optional(),
 });
+export const acceptInviteSchema = z.object({
+  token: z.string().min(1, "Invitation token is required."),
+  username: z.string().min(3, "Username must be at least 3 characters long."),
+  password: z.string().min(6, "Password must be at least 6 characters long."),
+});
+
+// ------------------ Login ------------------
+export const loginSchema = z.object({
+  email: z.string().email("Please enter a valid email address."),
+  password: z.string().min(6, "Password must be at least 6 characters long."),
+});
 
 // You can export types from these schemas for strong typing in controllers
 export type SendOtpInput = z.infer<typeof sendOtpSchema>;
 export type VerifyEmailInput = z.infer<typeof verifyEmailSchema>;
 export type RegisterAdminInput = z.infer<typeof registerAdminSchema>;
+export type AcceptInviteInput = z.infer<typeof acceptInviteSchema>;
+export type LoginInput = z.infer<typeof loginSchema>;

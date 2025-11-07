@@ -8,7 +8,7 @@ export const StepsIndicator = ({
   totalSteps,
 }: StepsIndicatorProps) => {
   return (
-    <div className="flex items-center gap-2 mb-6">
+    <div className="flex items-center gap-2 h-5">
       {Array.from({ length: totalSteps }).map((_, i) => (
         <div
           key={i}

@@ -18,6 +18,7 @@ export const auth = createModel<RootModel>()({
       return { user: payload };
     },
     clearUser() {
+      localStorage.removeItem("user");
       return { user: null };
     },
   },

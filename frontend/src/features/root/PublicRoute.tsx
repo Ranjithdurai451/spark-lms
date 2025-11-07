@@ -1,4 +1,4 @@
-import { useAppSelector } from "@/lib/hook";
+import { useAppSelector } from "@/lib/hooks";
 import { Navigate } from "react-router";
 
 interface PublicRouteProps {

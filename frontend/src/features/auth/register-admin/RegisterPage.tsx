@@ -23,7 +23,7 @@ const steps = [
   { Component: AddMembers },
 ];
 
-export const RegisterCard = () => {
+export const RegisterPage = () => {
   const [stepState, setStepState] = useState({
     current: 0,
     direction: "next" as Direction,
@@ -60,26 +60,24 @@ export const RegisterCard = () => {
     setFormData((prev) => ({ ...prev, ...newData }));
 
   return (
-    <div className="w-full min-h-screen flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        <StepsIndicator currentStep={current + 1} totalSteps={steps.length} />
+    <div className="w-[85%] sm:w-[420px] flex flex-col gap-5 ">
+      <StepsIndicator currentStep={current + 1} totalSteps={steps.length} />
 
-        <div className="relative overflow-hidden bg-card border border-border/50 shadow-xl backdrop-blur-sm rounded-xl p-4 transition-all duration-300">
-          <div
-            key={current}
-            className={`transition-all duration-500 ease-in-out transform ${
-              direction === "next"
-                ? "animate-slide-in-right"
-                : "animate-slide-in-left"
-            }`}
-          >
-            <StepComponent
-              data={formData}
-              onNext={handleNextStep}
-              onBack={handlePreviousStep}
-              onUpdate={handleUpdateData}
-            />
-          </div>
+      <div className="flex-1 bg-card border border-border/50 shadow-xl backdrop-blur-sm rounded-xl  transition-all duration-300">
+        <div
+          key={current}
+          className={`transition-all duration-500 ease-in-out transform ${
+            direction === "next"
+              ? "animate-slide-in-right"
+              : "animate-slide-in-left"
+          }`}
+        >
+          <StepComponent
+            data={formData}
+            onNext={handleNextStep}
+            onBack={handlePreviousStep}
+            onUpdate={handleUpdateData}
+          />
         </div>
       </div>
     </div>

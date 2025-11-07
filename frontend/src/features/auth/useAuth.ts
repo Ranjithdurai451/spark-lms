@@ -1,25 +1,6 @@
 import AuthService from "@/features/auth/authService";
-import { useMutation, type UseMutationOptions } from "@tanstack/react-query";
-import type { AxiosError } from "axios";
-import type { ApiResponse } from "@/features/auth/authService";
-
-export function useApiMutation<TFn extends (...args: any[]) => Promise<any>>(
-  mutationFn: TFn,
-  options?: UseMutationOptions<
-    Awaited<ReturnType<TFn>>, // Response type
-    AxiosError<ApiResponse>, // Error type
-    Parameters<TFn>[0] // Variables type
-  >
-) {
-  return useMutation<
-    Awaited<ReturnType<TFn>>,
-    AxiosError<ApiResponse>,
-    Parameters<TFn>[0]
-  >({
-    mutationFn,
-    ...options,
-  });
-}
+import { useApiMutation } from "@/lib/hooks";
+import { useQuery } from "@tanstack/react-query";
 
 //  Register Admin
 export const useRegisterAdmin = () => useApiMutation(AuthService.registerAdmin);
@@ -35,11 +16,7 @@ export const useForgotPassword = () =>
   useApiMutation(AuthService.forgotPassword);
 
 //  Reset Password (special case with multiple args)
-export const useResetPassword = () =>
-  useApiMutation(
-    ({ token, payload }: { token: string; payload: { newPassword: string } }) =>
-      AuthService.resetPassword(token, payload)
-  );
+export const useResetPassword = () => useApiMutation(AuthService.resetPassword);
 
 //  Send Email Verification OTP
 export const useSendEmailVerificationOtp = () =>
@@ -50,3 +27,12 @@ export const useVerifyEmail = () => useApiMutation(AuthService.verifyEmail);
 
 //  Logout
 export const useLogout = () => useApiMutation(AuthService.logout);
+export const useCheckAuth = () =>
+  useQuery({
+    queryKey: ["authStatus"],
+    queryFn: async () => {
+      const res = await AuthService.checkAuth();
+      return res.data;
+    },
+    retry: false,
+  });

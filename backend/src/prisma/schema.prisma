@@ -1,0 +1,43 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  username     String
+  passwordHash String
+  role         Role     @default(EMPLOYEE)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Organization Relation
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // Reporting / Hierarchy Relations
+  managerId String?
+  manager   User?   @relation("UserHierarchy", fields: [managerId], references: [id], onDelete: Cascade)
+  reports   User[]  @relation("UserHierarchy")
+}
+
+model Organization {
+  id                     String   @id @default(uuid())
+  organizationName        String
+  organizationCode        String   @unique
+  organizationDescription String?
+  createdAt               DateTime @default(now())
+
+  users User[]
+}
+
+enum Role {
+  ADMIN
+  HR
+  EMPLOYEE
+}

@@ -4,7 +4,7 @@ import { store } from "@/lib/globalStore";
 import type { ReactNode } from "react";
 import { ThemeProvider } from "./ThemeProvider";
 
-const queryClient = new QueryClient();
+export const queryClient = new QueryClient();
 
 function App({ children }: { children: ReactNode }) {
   return (

@@ -11,4 +11,12 @@ export interface User {
   username: string;
   role: Role;
   organization?: Organization | null;
+  manager?: { id: string; username: string };
+}
+// src/lib/types/organization.ts
+
+export interface FullOrganization extends Organization {
+  createdAt?: string;
+  updatedAt?: string;
+  users: Array<Pick<User, "id" | "username" | "email" | "role" | "manager">>;
 }

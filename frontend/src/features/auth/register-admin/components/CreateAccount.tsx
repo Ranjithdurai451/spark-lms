@@ -174,7 +174,7 @@ export const CreateAccount = ({
               >
                 {isSendingOtp ? (
                   <>
-                    <Loader className="w-4 h-4 animate-spin mr-2" /> Sending...
+                    <Loader className="w-4 h-4 animate-spin" />
                   </>
                 ) : otpSent ? (
                   resendCooldown > 0 ? (
