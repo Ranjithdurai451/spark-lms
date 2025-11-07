@@ -1,8 +1,7 @@
 import type { SendMailOptions } from "nodemailer";
 import { transporter } from "../config/nodemailer.js";
 import { createToken } from "./auth.helper.js";
-import { type memberInviteTokenPayload } from "../types.js";
-import { Role } from "@prisma/client";
+import { Role, type memberInviteTokenPayload } from "../types.js";
 import { APP_NAME, EMAIL_USER, FRONTEND_BASE_URL } from "../constants.js";
 
 export interface SendEmailOptions {
