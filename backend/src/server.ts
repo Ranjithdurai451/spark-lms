@@ -7,6 +7,10 @@ import cookieParser from "cookie-parser";
 import { userRouter } from "./routes/user.route";
 import { organizationRouter } from "./routes/organization.route";
 import { main } from "./lib/test";
+import { holidayRouter } from "./routes/holiday.route";
+import { leavePolicyRouter } from "./routes/leave-policy.route";
+import { leaveRouter } from "./routes/leave.route";
+import { leaveBalanceRouter } from "./routes/leave-balance.route";
 dotenv.config();
 const PORT = process.env.PORT || 3000;
 const FRONTEND_BASE_URL = [
@@ -36,9 +40,14 @@ app.get("/clear", async (req, res) => {
     res.status(400).send(" Error clearing database:");
   }
 });
+
 app.use("/auth", authRouter);
 app.use("/users", userRouter);
 app.use("/organizations", organizationRouter);
+app.use("/holidays", holidayRouter);
+app.use("/leave-policies", leavePolicyRouter);
+app.use("/leaves", leaveRouter);
+app.use("/leave-balance", leaveBalanceRouter);
 
 (async () => {
   try {

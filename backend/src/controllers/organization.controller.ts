@@ -1,23 +1,10 @@
 import type { Request, Response } from "express";
 import { prisma } from "../db";
-import { verifyToken } from "../lib/helpers/auth.helper";
-import type { authTokenPayload } from "../lib/types";
 import { sendMemberInviteEmail } from "../lib/helpers/mail.helper";
 
 export const getOrganizationById = async (req: Request, res: Response) => {
   try {
-    const token = req.cookies["auth-token"];
-    if (!token) return res.status(401).json({ message: "Not authenticated" });
-
-    const verification = verifyToken<authTokenPayload>(token);
-    if (!verification.valid) {
-      return res.status(400).json({ message: verification.message });
-    }
-
     const { organizationId } = req.params;
-    if (!organizationId) {
-      return res.status(400).json({ message: "organizationId is required" });
-    }
 
     const organization = await prisma.organization.findUnique({
       where: { id: organizationId },
@@ -28,7 +15,9 @@ export const getOrganizationById = async (req: Request, res: Response) => {
             username: true,
             email: true,
             role: true,
-            manager: { select: { id: true, username: true, email: true } },
+            manager: {
+              select: { id: true, username: true, email: true },
+            },
           },
           orderBy: { createdAt: "desc" },
         },
@@ -36,7 +25,7 @@ export const getOrganizationById = async (req: Request, res: Response) => {
     });
 
     if (!organization) {
-      return res.status(404).json({ message: "Organization not found" });
+      return res.status(404).json({ message: "Organization not found." });
     }
 
     return res.status(200).json({
@@ -45,7 +34,7 @@ export const getOrganizationById = async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error("❌ getOrganizationById error:", error);
-    return res.status(500).json({ message: "Failed to fetch organization." });
+    res.status(500).json({ message: "Failed to fetch organization." });
   }
 };
 
@@ -54,52 +43,44 @@ export const inviteMember = async (req: Request, res: Response) => {
     const { invitedEmail, role, managerId } = req.body;
     const { user } = req;
 
-    // Ensure only ADMIN or HR can invite
-    if (user?.role !== "ADMIN" && user?.role !== "HR") {
-      return res.status(403).json({
-        message: "Only Admin or HR can invite members.",
+    if (!invitedEmail || !role) {
+      return res.status(400).json({
+        message: "Email and role are required.",
       });
     }
 
-    // Validate inputs
-    if (!invitedEmail || !role) {
-      return res.status(400).json({ message: "Email and role are required." });
-    }
-
-    // Check if the user already exists
+    // Check if the invited user already exists
     const existingUser = await prisma.user.findUnique({
       where: { email: invitedEmail },
     });
-    // if (existingUser) {
-    //   return res
-    //     .status(400)
-    //     .json({ message: "User with this email already exists." });
-    // }
-
-    // Verify organization
-    const organization = await prisma.organization.findUnique({
-      where: { id: user?.organization?.id },
-    });
-    if (!organization) {
-      return res.status(404).json({
-        message: "Organization not found.",
+    if (existingUser) {
+      return res.status(400).json({
+        message: "User with this email already exists.",
       });
     }
 
-    let manager = null;
+    // Optional: validate manager
     if (managerId) {
-      manager = await prisma.user.findUnique({ where: { id: managerId } });
+      const manager = await prisma.user.findUnique({
+        where: { id: managerId },
+      });
       if (!manager) {
         return res.status(404).json({ message: "Manager not found." });
       }
+
+      if (manager.organizationId !== user.organization.id) {
+        return res.status(400).json({
+          message: "Manager must belong to the same organization.",
+        });
+      }
     }
 
-    // Store the invite temporarily in DB
+    // Send invite email
     await sendMemberInviteEmail({
-      invitedEmail: invitedEmail,
+      invitedEmail,
       role,
-      organizationId: organization.id,
-      organizationName: organization.organizationName,
+      organizationId: user.organization.id,
+      organizationName: user.organization.organizationName,
       managerId,
     });
 
@@ -108,11 +89,102 @@ export const inviteMember = async (req: Request, res: Response) => {
       data: {
         email: invitedEmail,
         role,
-        organization: organization.organizationName,
+        organization: user.organization.organizationName,
       },
     });
   } catch (error) {
     console.error("❌ inviteMember error:", error);
-    return res.status(500).json({ message: "Failed to invite member." });
+    res.status(500).json({ message: "Failed to send invite." });
+  }
+};
+
+export const updateUser = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { username, role, managerId } = req.body;
+
+    const existing = await prisma.user.findUnique({
+      where: { id },
+      include: { organization: true },
+    });
+
+    if (!existing) {
+      return res.status(404).json({ message: "User not found." });
+    }
+
+    // Validate manager if provided
+    if (managerId) {
+      if (managerId === id) {
+        return res
+          .status(400)
+          .json({ message: "A user cannot be their own manager." });
+      }
+
+      const manager = await prisma.user.findUnique({
+        where: { id: managerId },
+      });
+      if (!manager) {
+        return res.status(400).json({ message: "Manager not found." });
+      }
+
+      if (manager.organizationId !== existing.organizationId) {
+        return res.status(400).json({
+          message: "Manager must belong to the same organization.",
+        });
+      }
+    }
+
+    const updatedUser = await prisma.user.update({
+      where: { id },
+      data: {
+        username: username ?? existing.username,
+        role: role ?? existing.role,
+        managerId: managerId ?? existing.managerId,
+      },
+      select: {
+        id: true,
+        username: true,
+        email: true,
+        role: true,
+        managerId: true,
+        organizationId: true,
+      },
+    });
+
+    res.status(200).json({
+      message: "Member updated successfully.",
+      data: updatedUser,
+    });
+  } catch (error) {
+    console.error("❌ updateUser error:", error);
+    res.status(500).json({ message: "Failed to update user." });
+  }
+};
+
+export const deleteUser = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    const existing = await prisma.user.findUnique({
+      where: { id },
+      select: { role: true },
+    });
+
+    if (!existing) {
+      return res.status(404).json({ message: "User not found." });
+    }
+
+    if (existing.role === "ADMIN") {
+      return res.status(403).json({
+        message: "You cannot delete another admin account.",
+      });
+    }
+
+    await prisma.user.delete({ where: { id } });
+
+    res.status(200).json({ message: "Member deleted successfully." });
+  } catch (error) {
+    console.error("❌ deleteUser error:", error);
+    res.status(500).json({ message: "Failed to delete user." });
   }
 };

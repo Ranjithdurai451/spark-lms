@@ -1,5 +1,3 @@
-"use client";
-
 import {
   Dialog,
   DialogContent,
@@ -9,34 +7,35 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { useDeleteHoliday } from "../useHolidays";
 import { useState } from "react";
-import { useDeleteUser } from "../useOrganization";
+
+interface DeleteConfirmDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  holidayId: string;
+  onSuccess: () => void;
+}
 
 export function DeleteConfirmDialog({
   open,
   onOpenChange,
-  userId,
-  username,
-}: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  userId: string;
-  username: string;
-}) {
-  const { mutate: deleteUser, isPending } = useDeleteUser();
+  holidayId,
+  onSuccess,
+}: DeleteConfirmDialogProps) {
+  const { mutate: deleteHoliday, isPending } = useDeleteHoliday();
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  const handleConfirm = () => {
-    deleteUser(userId, {
-      onSuccess: (res) => {
-        setErrorMsg(null);
+  const handleDelete = () => {
+    deleteHoliday(holidayId, {
+      onSuccess: () => {
+        onSuccess();
         onOpenChange(false);
       },
       onError: (err: any) => {
-        const msg =
-          err.response?.data?.message ||
-          "Something went wrong while deleting the member.";
-        setErrorMsg(msg);
+        setErrorMsg(
+          err.response?.data?.message || "Failed to delete this holiday."
+        );
       },
     });
   };
@@ -45,27 +44,24 @@ export function DeleteConfirmDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Delete Member</DialogTitle>
+          <DialogTitle>Delete Holiday</DialogTitle>
           <DialogDescription>
-            Are you sure you want to delete <b>{username}</b>? This action
-            cannot be undone.
+            Are you sure you want to delete this holiday? This action cannot be
+            undone.
           </DialogDescription>
         </DialogHeader>
-
-        {/* Error message (same style as login) */}
         {errorMsg && (
-          <p className="text-xs text-destructive font-medium text-center mt-2">
+          <p className="text-xs text-destructive font-medium mb-2">
             {errorMsg}
           </p>
         )}
-
-        <DialogFooter className="flex justify-end gap-3 mt-3">
+        <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
           <Button
             variant="destructive"
-            onClick={handleConfirm}
+            onClick={handleDelete}
             disabled={isPending}
           >
             {isPending ? "Deleting..." : "Delete"}

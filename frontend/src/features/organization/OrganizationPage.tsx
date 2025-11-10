@@ -7,7 +7,6 @@ import {
   CardDescription,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
   Plus,
   Edit2,
@@ -18,24 +17,28 @@ import {
 } from "lucide-react";
 import { EditMemberDialog } from "./components/EditMemberDialog";
 import { InviteDialog } from "./components/InviteDialog";
-import { DeleteConfirmDialog } from "./components/delete-confirm-dialog";
 import { useGetOrganizationById } from "./useOrganization";
 import { OrganizationSkeleton } from "./components/OrganizationSkeleton";
 import { useAppSelector } from "@/lib/hooks";
 import { cn } from "@/lib/utils";
+import { queryClient } from "../root/Providers";
+import { DeleteConfirmDialog } from "./components/delete-confirm-dialog";
 
 export function OrganizationPage() {
   const [editingMember, setEditingMember] = useState<any | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [isInviteOpen, setIsInviteOpen] = useState(false);
+
   const user = useAppSelector((state) => state.auth.user);
 
   const { data, isLoading, isError, error, refetch } = useGetOrganizationById(
     user?.organization?.id ?? ""
   );
 
+  // Loading skeleton
   if (isLoading) return <OrganizationSkeleton />;
 
+  // Error state
   if (isError)
     return (
       <div className="flex flex-col items-center justify-center h-[80vh] space-y-4 text-center">
@@ -69,6 +72,12 @@ export function OrganizationPage() {
       count: members.filter((m) => m.role === "EMPLOYEE").length,
     },
   ];
+
+  // Handler: After successful update or delete → refetch org data
+  const handleRefetchAfterChange = () => {
+    queryClient.invalidateQueries(["organization", org.id] as any);
+    refetch();
+  };
 
   return (
     <div className="p-6 space-y-8 max-w-7xl mx-auto">
@@ -218,21 +227,30 @@ export function OrganizationPage() {
         onOpenChange={setIsInviteOpen}
         members={members}
       />
+
       {editingMember && (
         <EditMemberDialog
           open={!!editingMember}
-          onOpenChange={(open: boolean) => !open && setEditingMember(null)}
+          onOpenChange={(open: boolean) => {
+            if (!open) setEditingMember(null);
+            handleRefetchAfterChange();
+          }}
           member={editingMember}
           members={members}
         />
       )}
+
       {deletingId && (
         <DeleteConfirmDialog
           open={!!deletingId}
-          onOpenChange={(open) => !open && setDeletingId(null)}
-          onConfirm={() => setDeletingId(null)}
-          title="Remove Member"
-          description="Are you sure you want to remove this member?"
+          onOpenChange={(open: boolean) => {
+            if (!open) setDeletingId(null);
+            handleRefetchAfterChange();
+          }}
+          userId={deletingId}
+          username={
+            members.find((m) => m.id === deletingId)?.username || "this user"
+          }
         />
       )}
     </div>

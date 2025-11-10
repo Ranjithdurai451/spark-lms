@@ -20,3 +20,5 @@ export interface FullOrganization extends Organization {
   updatedAt?: string;
   users: Array<Pick<User, "id" | "username" | "email" | "role" | "manager">>;
 }
+
+export type HOLIDAY_TYPE = "COMPANY" | "PUBLIC";

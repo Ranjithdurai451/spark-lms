@@ -7,6 +7,26 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+/* ─────────────────── ENUMS ─────────────────── */
+enum Role {
+  ADMIN
+  HR
+  MANAGER
+  EMPLOYEE
+}
+
+enum HolidayType {
+  PUBLIC
+  COMPANY
+}
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+/* ─────────────────── USER ─────────────────── */
 model User {
   id           String   @id @default(uuid())
   email        String   @unique
@@ -16,28 +36,122 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  // Organization Relation
   organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
-  // Reporting / Hierarchy Relations
   managerId String?
   manager   User?   @relation("UserHierarchy", fields: [managerId], references: [id], onDelete: Cascade)
   reports   User[]  @relation("UserHierarchy")
+
+  leavesRequested Leave[] @relation("EmployeeLeaves")
+  leavesApproved  Leave[] @relation("ApproverLeaves")
+
+  leaveBalances LeaveBalance[]
+
+  @@index([organizationId])
 }
 
+/* ─────────────────── ORGANIZATION ─────────────────── */
 model Organization {
-  id                     String   @id @default(uuid())
+  id                      String    @id @default(uuid())
   organizationName        String
-  organizationCode        String   @unique
+  organizationCode        String    @unique
   organizationDescription String?
-  createdAt               DateTime @default(now())
+  createdAt               DateTime  @default(now())
 
-  users User[]
+  users         User[]
+  holidays      Holiday[]
+  leavePolicies LeavePolicy[]
+  leaves        Leave[]
+  leaveBalances LeaveBalance[]
 }
 
-enum Role {
-  ADMIN
-  HR
-  EMPLOYEE
+/* ─────────────────── HOLIDAY ─────────────────── */
+model Holiday {
+  id              String         @id @default(uuid())
+  organizationId  String
+  organization    Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  name        String
+  description String?
+  date        DateTime
+  type        HolidayType
+  recurring   Boolean        @default(false)
+  createdAt   DateTime       @default(now())
+
+  @@index([organizationId, date])
+}
+
+/* ─────────────────── LEAVE POLICY ─────────────────── */
+model LeavePolicy {
+  id               String        @id @default(uuid())
+  organizationId   String
+  organization     Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  name             String
+  description      String?
+  maxDays          Int
+  carryForward     Int           @default(0)
+  requiresApproval Boolean       @default(true)
+  minNotice        Int           @default(0)
+  active           Boolean       @default(true)
+
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  leaveBalances LeaveBalance[]
+
+  @@index([organizationId, active])
+}
+
+/* ─────────────────── LEAVE REQUEST ─────────────────── */
+model Leave {
+  id             String       @id @default(uuid())
+
+  employeeId     String
+  employee       User         @relation("EmployeeLeaves", fields: [employeeId], references: [id], onDelete: Cascade)
+
+  approverId     String?
+  approver       User?        @relation("ApproverLeaves", fields: [approverId], references: [id], onDelete: SetNull)
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  type           String
+  reason         String?
+  startDate      DateTime
+  endDate        DateTime
+  days           Int
+  status         LeaveStatus  @default(PENDING)
+
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([organizationId, status])
+  @@index([employeeId])
+  @@index([approverId])
+}
+
+/* ─────────────────── LEAVE BALANCE ─────────────────── */
+model LeaveBalance {
+  id               String        @id @default(uuid())
+  employeeId       String
+  employee         User          @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  organizationId   String
+  organization     Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  leavePolicyId    String
+  leavePolicy      LeavePolicy   @relation(fields: [leavePolicyId], references: [id], onDelete: Cascade)
+
+  totalDays        Int
+  usedDays         Int           @default(0)
+  remainingDays    Int           @default(0)
+  carryForward     Int           @default(0)
+  lastReset        DateTime?     
+
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  @@unique([employeeId, leavePolicyId])
 }

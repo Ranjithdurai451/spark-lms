@@ -12,12 +12,35 @@ class OrganizationService {
     const { data } = await api.get(`/organizations/${organizationId}`);
     return data;
   }
+
+  /* ---------- Invite Member ---------- */
   static async inviteMember(payload: {
     invitedEmail: string;
     role: Role;
     managerId: string;
   }): Promise<ApiResponse> {
     const { data } = await api.post(`/organizations/invite-member`, payload);
+    return data;
+  }
+
+  /* ---------- Update User ---------- */
+  static async updateUser(payload: {
+    id: string;
+    username?: string;
+    role?: Role;
+    managerId?: string | null;
+  }): Promise<ApiResponse> {
+    const { data } = await api.put(`/organizations/members/${payload.id}`, {
+      username: payload.username,
+      role: payload.role,
+      managerId: payload.managerId,
+    });
+    return data;
+  }
+
+  /* ---------- Delete User ---------- */
+  static async deleteUser(userId: string): Promise<ApiResponse> {
+    const { data } = await api.delete(`/organizations/members/${userId}`);
     return data;
   }
 }

@@ -18,7 +18,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { MailPlus, Briefcase, Users } from "lucide-react";
 import { useInviteMember } from "../useOrganization";
-import { useNavigate } from "react-router";
 import type { Role } from "@/lib/types";
 
 export function InviteDialog({ open, onOpenChange, members }: any) {
@@ -56,7 +55,6 @@ export function InviteDialog({ open, onOpenChange, members }: any) {
       },
     });
   };
-  console.log(members);
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md rounded-2xl border border-border/30 bg-background/95 backdrop-blur-md p-6 shadow-xl">
@@ -138,15 +136,17 @@ export function InviteDialog({ open, onOpenChange, members }: any) {
           <Button
             variant="outline"
             onClick={() => onOpenChange(false)}
+            disabled={isPending}
             className="border-border/50 hover:bg-muted/50"
           >
             Cancel
           </Button>
           <Button
             onClick={handleSubmit}
+            disabled={isPending}
             className="bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
           >
-            Send Invite
+            {isPending ? "Sending Invite..." : "Send Invite"}
           </Button>
         </DialogFooter>
         {errorMsg && (

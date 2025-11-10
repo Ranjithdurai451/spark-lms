@@ -20,6 +20,7 @@ import type {
   VerifyEmailInput,
 } from "../lib/schemas/auth.schema";
 import { FRONTEND_BASE_URL } from "../lib/constants";
+import { createBalancesForNewUser } from "../lib/helpers/leave-balance.helper";
 
 /* -------------------------------------------------------------------------- */
 /*                        Send Email Verification OTP                         */
@@ -31,17 +32,16 @@ export const sendEmailVerificationOtp = async (
   try {
     const { email } = req.body;
 
-    const user = await prisma.user.findUnique({ where: { email } });
-    if (user) {
+    const existing = await prisma.user.findUnique({ where: { email } });
+    if (existing) {
       return res.status(400).json({
         message:
-          "This email address is already associated with an existing account. Please use a different email address.",
+          "This email is already associated with an existing account. Please use a different email.",
       });
     }
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const hashedOtp = await bcrypt.hash(otp, 10);
-
     const otpToken = createToken<otpTokenPayload>(
       { email, otp: hashedOtp },
       "10m"
@@ -50,14 +50,12 @@ export const sendEmailVerificationOtp = async (
     await sendOtpEmail(otp, email);
 
     return res.status(200).json({
-      message: "OTP has been sent to your email successfully.",
+      message: "OTP sent successfully.",
       data: { otpToken },
     });
-  } catch (error) {
-    console.error("❌ sendEmailVerificationOtp error:", error);
-    return res.status(500).json({
-      message: "An unexpected error occurred while sending the OTP.",
-    });
+  } catch (err) {
+    console.error("❌ sendEmailVerificationOtp error:", err);
+    res.status(500).json({ message: "Failed to send OTP." });
   }
 };
 
@@ -70,31 +68,19 @@ export const verifyEmail = async (
 ) => {
   try {
     const { otp, token } = req.body;
-
     const verification = verifyToken<otpTokenPayload>(token);
-    if (!verification.valid) {
+    if (!verification.valid)
       return res.status(400).json({ message: verification.message });
-    }
 
     const { email, otp: hashedOtp } = verification.payload;
-    const isValidOtp = await bcrypt.compare(otp, hashedOtp);
+    const validOtp = await bcrypt.compare(otp, hashedOtp);
+    if (!validOtp)
+      return res.status(400).json({ message: "Invalid or expired OTP." });
 
-    if (!isValidOtp) {
-      return res.status(400).json({
-        message:
-          "The OTP you entered is invalid or has expired. Please try again.",
-      });
-    }
-
-    return res.status(200).json({
-      message: "Email verified successfully!",
-      data: { email },
-    });
-  } catch (error) {
-    console.error("❌ verifyEmail error:", error);
-    return res.status(500).json({
-      message: "An unexpected error occurred while verifying your email.",
-    });
+    res.status(200).json({ message: "Email verified.", data: { email } });
+  } catch (err) {
+    console.error("❌ verifyEmail error:", err);
+    res.status(500).json({ message: "Verification failed." });
   }
 };
 
@@ -123,19 +109,16 @@ export const registerAdmin = async (
 
     if (existingUser)
       return res.status(400).json({
-        message:
-          "A user with this email already exists. Please use a different email address.",
+        message: "A user with this email already exists.",
       });
 
     if (existingOrg)
       return res.status(400).json({
-        message:
-          "The organization code you entered is already taken. Please choose another one.",
+        message: "This organization code is already taken.",
       });
 
     const passwordHash = await bcrypt.hash(password, 10);
 
-    // Create organization and admin user
     const org = await prisma.organization.create({
       data: {
         organizationName,
@@ -153,23 +136,24 @@ export const registerAdmin = async (
       include: { users: true },
     });
 
-    const adminUser = org.users.find((u: any) => u.email === email)!;
-
-    // Default manager = admin
+    const adminUser = org.users.find((u) => u.email === email)!;
     const managerId = adminUser.id;
 
-    // Send member invites
-    await Promise.all(
-      invitedEmails.map((invite: any) =>
-        sendMemberInviteEmail({
-          invitedEmail: invite.email,
-          role: invite.role,
-          organizationId: org.id,
-          organizationName: org.organizationName,
-          managerId,
-        })
-      )
-    );
+    // Parallelize balance creation and sending invites
+    await Promise.all([
+      createBalancesForNewUser(adminUser.id, org.id),
+      Promise.all(
+        invitedEmails.map((invite: any) =>
+          sendMemberInviteEmail({
+            invitedEmail: invite.email,
+            role: invite.role,
+            organizationId: org.id,
+            organizationName: org.organizationName,
+            managerId,
+          })
+        )
+      ),
+    ]);
 
     const authToken = createToken<authTokenPayload>(
       { userId: adminUser.id, role: adminUser.role },
@@ -183,9 +167,9 @@ export const registerAdmin = async (
       maxAge: 30 * 24 * 60 * 60 * 1000,
     });
 
-    return res.status(201).json({
+    res.status(201).json({
       message:
-        "Admin registered successfully. Your organization has been created and invitations have been sent to new members.",
+        "Admin registered successfully. Organization and member invites created.",
       data: {
         user: {
           id: adminUser.id,
@@ -198,9 +182,7 @@ export const registerAdmin = async (
     });
   } catch (err) {
     console.error("❌ registerAdmin error:", err);
-    res.status(500).json({
-      message: "An unexpected error occurred while registering admin.",
-    });
+    res.status(500).json({ message: "Failed to register admin." });
   }
 };
 
@@ -215,31 +197,25 @@ export const acceptInvite = async (
     const { token, username, password } = req.body;
     const verification = verifyToken<memberInviteTokenPayload>(token);
 
-    if (!verification.valid) {
+    if (!verification.valid)
       return res.status(400).json({ message: verification.message });
-    }
 
     const { email, role, organizationId, managerId } = verification.payload;
+
     const existingUser = await prisma.user.findUnique({ where: { email } });
     if (existingUser)
-      return res.status(400).json({
-        message:
-          "An account with this email address already exists. Please log in instead of accepting a new invite.",
-      });
+      return res
+        .status(400)
+        .json({ message: "User with this email already exists." });
 
     const passwordHash = await bcrypt.hash(password, 10);
 
     const newUser = await prisma.user.create({
-      data: {
-        email,
-        username,
-        passwordHash,
-        role,
-        organizationId,
-        managerId,
-      },
+      data: { email, username, passwordHash, role, organizationId, managerId },
       include: { organization: true, manager: true },
     });
+
+    await createBalancesForNewUser(newUser.id, organizationId);
 
     const authToken = createToken<authTokenPayload>(
       { userId: newUser.id, role: newUser.role },
@@ -253,9 +229,8 @@ export const acceptInvite = async (
       maxAge: 30 * 24 * 60 * 60 * 1000,
     });
 
-    return res.status(201).json({
-      message:
-        "Your account has been created successfully and linked to your organization. Welcome aboard!",
+    res.status(201).json({
+      message: "Invite accepted successfully. Account created.",
       data: {
         user: {
           id: newUser.id,
@@ -270,11 +245,10 @@ export const acceptInvite = async (
         },
       },
     });
-  } catch (err: any) {
+  } catch (err) {
     console.error("❌ acceptInvite error:", err);
-    return res.status(400).json({
-      message:
-        "The invitation link is invalid or has expired. Please contact your organization admin for a new invitation.",
+    res.status(400).json({
+      message: "Invalid or expired invitation token.",
     });
   }
 };
@@ -291,20 +265,14 @@ export const login = async (req: Request, res: Response) => {
       include: { organization: true, manager: true },
     });
 
-    if (!user) {
-      return res.status(404).json({
-        message:
-          "No account found with this email address. Please check your credentials or sign up first.",
-      });
-    }
+    if (!user)
+      return res
+        .status(404)
+        .json({ message: "No account found with this email." });
 
     const valid = await bcrypt.compare(password, user.passwordHash);
-    if (!valid) {
-      return res.status(401).json({
-        message:
-          "The email or password you entered is incorrect. Please try again.",
-      });
-    }
+    if (!valid)
+      return res.status(401).json({ message: "Invalid email or password." });
 
     const authToken = createToken<authTokenPayload>(
       { userId: user.id, role: user.role },
@@ -318,8 +286,8 @@ export const login = async (req: Request, res: Response) => {
       maxAge: 30 * 24 * 60 * 60 * 1000,
     });
 
-    return res.status(200).json({
-      message: `Welcome back, ${user.username}! You have successfully logged in.`,
+    res.status(200).json({
+      message: `Welcome back, ${user.username}!`,
       data: {
         user: {
           id: user.id,
@@ -334,12 +302,9 @@ export const login = async (req: Request, res: Response) => {
         },
       },
     });
-  } catch (err: any) {
+  } catch (err) {
     console.error("❌ login error:", err);
-    return res.status(500).json({
-      message:
-        "An unexpected error occurred while processing your login request. Please try again later.",
-    });
+    res.status(500).json({ message: "Login failed. Try again later." });
   }
 };
 
@@ -352,9 +317,8 @@ export const checkAuth = async (req: Request, res: Response) => {
     if (!token) return res.status(401).json({ message: "Not authenticated" });
 
     const verification = verifyToken<authTokenPayload>(token);
-    if (!verification.valid) {
+    if (!verification.valid)
       return res.status(400).json({ message: verification.message });
-    }
 
     const { userId } = verification.payload;
 
@@ -362,23 +326,12 @@ export const checkAuth = async (req: Request, res: Response) => {
       where: { id: userId },
       include: { organization: true, manager: true },
     });
+
     if (!user) return res.status(404).json({ message: "User not found" });
 
-    res.json({
-      message: "User is authenticated",
-      data: {
-        user: {
-          id: user.id,
-          email: user.email,
-          username: user.username,
-          role: user.role,
-          organization: user.organization,
-          manager: user.manager && {
-            id: user.manager.id,
-            username: user.manager.username,
-          },
-        },
-      },
+    res.status(200).json({
+      message: "Authenticated",
+      data: { user },
     });
   } catch {
     res.status(401).json({ message: "Invalid token" });
@@ -394,7 +347,7 @@ export const logout = (req: Request, res: Response) => {
     secure: process.env.NODE_ENV !== "development",
     sameSite: process.env.NODE_ENV !== "development" ? "none" : "lax",
   });
-  res.json({ message: "Logged out successfully" });
+  res.json({ message: "Logged out successfully." });
 };
 
 /* -------------------------------------------------------------------------- */

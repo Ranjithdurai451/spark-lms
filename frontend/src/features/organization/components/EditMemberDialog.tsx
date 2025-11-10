@@ -16,35 +16,46 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { User2, Mail, Briefcase, Users } from "lucide-react";
+import { User2, Briefcase, Users } from "lucide-react";
+import { useUpdateUser } from "../useOrganization";
 
-export function EditMemberDialog({
-  member,
-  open,
-  onOpenChange,
-  onUpdate,
-  members,
-}: any) {
+export function EditMemberDialog({ member, open, onOpenChange, members }: any) {
   const [formData, setFormData] = useState(member);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  const { mutate: updateUser, isPending } = useUpdateUser();
 
   useEffect(() => {
     setFormData(member);
+    setErrorMsg(null);
   }, [member]);
 
-  useEffect(() => {
-    if (!formData.managerId && members.length > 0) {
-      const firstManager =
-        members.find((m: any) => m.role === "Manager") || members[0];
-      setFormData((prev: any) => ({
-        ...prev,
-        managerId: String(firstManager.id),
-      }));
-    }
-  }, [members, formData.managerId]);
-
   const handleSubmit = () => {
-    if (!formData.name || !formData.email) return;
-    onUpdate(formData);
+    if (!formData.username) {
+      setErrorMsg("Name is required.");
+      return;
+    }
+
+    updateUser(
+      {
+        id: formData.id,
+        username: formData.username,
+        role: formData.role,
+        managerId: formData.managerId || null,
+      },
+      {
+        onSuccess: () => {
+          setErrorMsg(null);
+          onOpenChange(false);
+        },
+        onError: (err: any) => {
+          const msg =
+            err.response?.data?.message ||
+            "Something went wrong. Please try again.";
+          setErrorMsg(msg);
+        },
+      }
+    );
   };
 
   return (
@@ -60,106 +71,86 @@ export function EditMemberDialog({
         </DialogHeader>
 
         <div className="space-y-6 pt-4">
-          {/* Full Name */}
+          {/* Name */}
           <div className="space-y-1.5">
-            <Label className="text-sm font-medium text-foreground">
-              Full Name
-            </Label>
-            <div className="relative">
-              <Input
-                value={formData.name}
-                onChange={(e) =>
-                  setFormData({ ...formData, name: e.target.value })
-                }
-                placeholder="Enter full name"
-                className="pl-10"
-              />
-              <User2 className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-            </div>
+            <Label>Full Name</Label>
+            <Input
+              value={formData.username}
+              onChange={(e) =>
+                setFormData({ ...formData, username: e.target.value })
+              }
+              placeholder="Enter full name"
+              className="pl-10"
+            />
           </div>
 
-          {/* Email */}
+          {/* Role */}
           <div className="space-y-1.5">
-            <Label className="text-sm font-medium text-foreground">
-              Email Address
-            </Label>
-            <div className="relative">
-              <Input
-                type="email"
-                value={formData.email}
-                onChange={(e) =>
-                  setFormData({ ...formData, email: e.target.value })
-                }
-                placeholder="example@company.com"
-                className="pl-10"
-              />
-              <Mail className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-            </div>
+            <Label>Role</Label>
+            <Select
+              value={formData.role}
+              onValueChange={(v) => setFormData({ ...formData, role: v })}
+            >
+              <SelectTrigger>
+                <Briefcase className="h-4 w-4 text-muted-foreground mr-2" />
+                <SelectValue placeholder="Select role" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ADMIN">Admin</SelectItem>
+                <SelectItem value="HR">HR</SelectItem>
+                <SelectItem value="EMPLOYEE">Employee</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
-          {/* Role + Manager */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-            <div className="space-y-1.5">
-              <Label className="text-sm font-medium text-foreground">
-                Role
-              </Label>
-              <Select
-                value={formData.role || "Employee"}
-                onValueChange={(v) => setFormData({ ...formData, role: v })}
-              >
-                <SelectTrigger>
-                  <Briefcase className="h-4 w-4 text-muted-foreground mr-2" />
-                  <SelectValue placeholder="Select role" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Admin">Admin</SelectItem>
-                  <SelectItem value="Manager">Manager</SelectItem>
-                  <SelectItem value="Employee">Employee</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label className="text-sm font-medium text-foreground">
-                Manager
-              </Label>
-              <Select
-                value={formData.managerId ? String(formData.managerId) : ""}
-                onValueChange={(v) =>
-                  setFormData({ ...formData, managerId: v })
-                }
-                disabled={formData.role === "Admin"}
-              >
-                <SelectTrigger>
-                  <Users className="h-4 w-4 text-muted-foreground mr-2" />
-                  <SelectValue placeholder="Select manager" />
-                </SelectTrigger>
-                <SelectContent>
-                  {members.map((m: any) => (
-                    <SelectItem key={m.id} value={String(m.id)}>
-                      {m.name} ({m.role})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+          {/* Manager */}
+          <div className="space-y-1.5">
+            <Label>Manager</Label>
+            <Select
+              value={formData.managerId || ""}
+              onValueChange={(v) =>
+                setFormData({ ...formData, managerId: v || null })
+              }
+            >
+              <SelectTrigger>
+                <Users className="h-4 w-4 text-muted-foreground mr-2" />
+                <SelectValue placeholder="Select manager" />
+              </SelectTrigger>
+              <SelectContent>
+                {members.map((m: any) => (
+                  <SelectItem key={m.id} value={String(m.id)}>
+                    {m.username} ({m.role})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
 
-        <DialogFooter className="pt-6 flex justify-end gap-3">
-          <Button
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-            className="border-border/50 hover:bg-muted/50"
-          >
-            Cancel
-          </Button>
-          <Button
-            onClick={handleSubmit}
-            className="bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
-          >
-            Save Changes
-          </Button>
+        <DialogFooter className="pt-6 flex flex-col gap-3">
+          {/* Error message (like login) */}
+          {errorMsg && (
+            <p className="text-xs text-destructive font-medium text-center">
+              {errorMsg}
+            </p>
+          )}
+
+          <div className="flex justify-end gap-3">
+            <Button
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              className="border-border/50 hover:bg-muted/50"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSubmit}
+              disabled={isPending}
+              className="bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+            >
+              {isPending ? "Saving..." : "Save Changes"}
+            </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>

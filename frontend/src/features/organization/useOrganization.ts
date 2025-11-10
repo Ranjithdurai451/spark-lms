@@ -7,6 +7,7 @@ import type { AxiosError } from "axios";
 import type { FullOrganization } from "@/lib/types";
 import { useApiMutation } from "@/lib/hooks";
 
+/* ---------- GET ORGANIZATION ---------- */
 export const useGetOrganizationById = (organizationId: string) =>
   useQuery<ApiResponse<FullOrganization>, AxiosError<ApiResponse>>({
     queryKey: ["organization", organizationId],
@@ -16,5 +17,15 @@ export const useGetOrganizationById = (organizationId: string) =>
     },
     enabled: !!organizationId,
   });
+
+/* ---------- INVITE MEMBER ---------- */
 export const useInviteMember = () =>
   useApiMutation(OrganizationService.inviteMember);
+
+/* ---------- UPDATE USER ---------- */
+export const useUpdateUser = () =>
+  useApiMutation(OrganizationService.updateUser);
+
+/* ---------- DELETE USER ---------- */
+export const useDeleteUser = () =>
+  useApiMutation(OrganizationService.deleteUser);
