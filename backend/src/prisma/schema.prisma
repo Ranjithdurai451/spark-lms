@@ -20,10 +20,12 @@ enum HolidayType {
   COMPANY
 }
 
+
 enum LeaveStatus {
   PENDING
   APPROVED
   REJECTED
+  CANCELLED  
 }
 
 /* ─────────────────── USER ─────────────────── */

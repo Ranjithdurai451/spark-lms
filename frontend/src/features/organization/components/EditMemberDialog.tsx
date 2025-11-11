@@ -1,3 +1,4 @@
+// features/organization/components/EditMemberDialog.tsx
 import { useState, useEffect } from "react";
 import {
   Dialog,
@@ -16,43 +17,55 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { User2, Briefcase, Users } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { User2, AlertCircle, Loader2 } from "lucide-react";
 import { useUpdateUser } from "../useOrganization";
+import { queryClient } from "@/features/root/Providers";
 
 export function EditMemberDialog({ member, open, onOpenChange, members }: any) {
-  const [formData, setFormData] = useState(member);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [formData, setFormData] = useState({
+    ...member,
+    managerId: member.managerId || "none", // Convert null to "none"
+  });
+  const [error, setError] = useState<string | null>(null);
 
   const { mutate: updateUser, isPending } = useUpdateUser();
 
   useEffect(() => {
-    setFormData(member);
-    setErrorMsg(null);
+    setFormData({
+      ...member,
+      managerId: member.managerId || "none",
+    });
+    setError(null);
   }, [member]);
 
   const handleSubmit = () => {
     if (!formData.username) {
-      setErrorMsg("Name is required.");
+      setError("Name is required.");
       return;
     }
+
+    setError(null);
 
     updateUser(
       {
         id: formData.id,
         username: formData.username,
         role: formData.role,
-        managerId: formData.managerId || null,
+        managerId: formData.managerId === "none" ? null : formData.managerId, // Convert "none" to null
       },
       {
         onSuccess: () => {
-          setErrorMsg(null);
+          queryClient.invalidateQueries(["organization"] as any);
+
+          setError(null);
           onOpenChange(false);
         },
         onError: (err: any) => {
-          const msg =
+          setError(
             err.response?.data?.message ||
-            "Something went wrong. Please try again.";
-          setErrorMsg(msg);
+              "Failed to update member. Please try again."
+          );
         },
       }
     );
@@ -60,94 +73,110 @@ export function EditMemberDialog({ member, open, onOpenChange, members }: any) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md rounded-2xl border border-border/30 bg-background/95 backdrop-blur-md p-6 shadow-xl">
+      <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle className="text-xl font-semibold flex items-center gap-2">
-            <User2 className="w-5 h-5 text-primary" /> Edit Member
+          <DialogTitle className="text-lg font-semibold flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+              <User2 className="w-4 h-4 text-primary" />
+            </div>
+            Edit Member
           </DialogTitle>
-          <p className="text-sm text-muted-foreground">
-            Update details, role, or reporting manager for this member.
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Update member details and permissions
           </p>
         </DialogHeader>
 
-        <div className="space-y-6 pt-4">
+        <div className="space-y-4 pt-2">
           {/* Name */}
-          <div className="space-y-1.5">
-            <Label>Full Name</Label>
+          <div className="space-y-2">
+            <Label className="text-xs font-medium text-muted-foreground">
+              Full Name
+            </Label>
             <Input
               value={formData.username}
               onChange={(e) =>
                 setFormData({ ...formData, username: e.target.value })
               }
               placeholder="Enter full name"
-              className="pl-10"
+              className="h-9"
             />
           </div>
 
           {/* Role */}
-          <div className="space-y-1.5">
-            <Label>Role</Label>
+          <div className="space-y-2">
+            <Label className="text-xs font-medium text-muted-foreground">
+              Role
+            </Label>
             <Select
               value={formData.role}
               onValueChange={(v) => setFormData({ ...formData, role: v })}
             >
-              <SelectTrigger>
-                <Briefcase className="h-4 w-4 text-muted-foreground mr-2" />
+              <SelectTrigger className="h-9">
                 <SelectValue placeholder="Select role" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="ADMIN">Admin</SelectItem>
                 <SelectItem value="HR">HR</SelectItem>
+                <SelectItem value="MANAGER">Manager</SelectItem>
                 <SelectItem value="EMPLOYEE">Employee</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
           {/* Manager */}
-          <div className="space-y-1.5">
-            <Label>Manager</Label>
+          <div className="space-y-2">
+            <Label className="text-xs font-medium text-muted-foreground">
+              Manager (Optional)
+            </Label>
             <Select
-              value={formData.managerId || ""}
-              onValueChange={(v) =>
-                setFormData({ ...formData, managerId: v || null })
-              }
+              value={formData.managerId}
+              onValueChange={(v) => setFormData({ ...formData, managerId: v })}
             >
-              <SelectTrigger>
-                <Users className="h-4 w-4 text-muted-foreground mr-2" />
+              <SelectTrigger className="h-9">
                 <SelectValue placeholder="Select manager" />
               </SelectTrigger>
               <SelectContent>
-                {members.map((m: any) => (
-                  <SelectItem key={m.id} value={String(m.id)}>
-                    {m.username} ({m.role})
-                  </SelectItem>
-                ))}
+                <SelectItem value="none">None</SelectItem>
+                {members
+                  .filter((m: any) => m.id !== formData.id)
+                  .map((m: any) => (
+                    <SelectItem key={m.id} value={m.id}>
+                      {m.username} ({m.role})
+                    </SelectItem>
+                  ))}
               </SelectContent>
             </Select>
           </div>
+
+          {/* Error Message */}
+          {error && (
+            <Alert variant="destructive" className="py-2 animate-in fade-in-50">
+              <AlertCircle className="h-3.5 w-3.5" />
+              <AlertDescription className="text-[11px]">
+                {error}
+              </AlertDescription>
+            </Alert>
+          )}
         </div>
 
-        <DialogFooter className="pt-6 flex flex-col gap-3">
-          {/* Error message (like login) */}
-          {errorMsg && (
-            <p className="text-xs text-destructive font-medium text-center">
-              {errorMsg}
-            </p>
-          )}
-
-          <div className="flex justify-end gap-3">
+        <DialogFooter className="pt-4">
+          <div className="flex gap-2 w-full">
             <Button
               variant="outline"
               onClick={() => onOpenChange(false)}
-              className="border-border/50 hover:bg-muted/50"
+              disabled={isPending}
+              className="flex-1 h-9 text-xs"
             >
               Cancel
             </Button>
             <Button
               onClick={handleSubmit}
               disabled={isPending}
-              className="bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+              className="flex-1 h-9 text-xs font-medium"
             >
+              {isPending && (
+                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+              )}
               {isPending ? "Saving..." : "Save Changes"}
             </Button>
           </div>

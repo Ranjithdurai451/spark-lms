@@ -47,7 +47,7 @@ app.use("/organizations", organizationRouter);
 app.use("/holidays", holidayRouter);
 app.use("/leave-policies", leavePolicyRouter);
 app.use("/leaves", leaveRouter);
-app.use("/leave-balance", leaveBalanceRouter);
+app.use("/leave-balances", leaveBalanceRouter);
 
 (async () => {
   try {

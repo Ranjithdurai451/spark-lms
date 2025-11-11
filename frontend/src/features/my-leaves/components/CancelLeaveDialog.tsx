@@ -1,4 +1,4 @@
-// features/organization/components/delete-confirm-dialog.tsx
+// features/leaves/components/CancelLeaveDialog.tsx
 import { useState } from "react";
 import {
   AlertDialog,
@@ -12,38 +12,40 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle, Loader2 } from "lucide-react";
-import { useDeleteUser } from "../useOrganization";
+import { useCancelLeave } from "../useMyLeaves";
 import { queryClient } from "@/features/root/Providers";
 
-export function DeleteConfirmDialog({
+export function CancelLeaveDialog({
   open,
   onOpenChange,
-  userId,
-  username,
+  leaveId,
+  onSuccess,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  userId: string;
-  username: string;
+  leaveId: string;
+  onSuccess: () => void;
 }) {
-  const { mutate: deleteUser, isPending } = useDeleteUser();
+  const { mutate: cancelLeave, isPending } = useCancelLeave();
   const [error, setError] = useState<string | null>(null);
 
-  const handleConfirm = () => {
+  const handleCancel = () => {
     setError(null);
 
-    deleteUser(userId, {
+    cancelLeave(leaveId, {
       onSuccess: () => {
-        // Invalidate queries
-        queryClient.invalidateQueries(["organization"] as any);
+        // Invalidate queries immediately
+        queryClient.invalidateQueries(["my-leaves"] as any);
+        queryClient.invalidateQueries(["leave-balances"] as any);
 
+        onSuccess();
         onOpenChange(false);
         setError(null);
       },
       onError: (err: any) => {
         setError(
           err.response?.data?.message ||
-            "Failed to delete member. Please try again."
+            "Failed to cancel leave. Please try again."
         );
       },
     });
@@ -62,10 +64,10 @@ export function DeleteConfirmDialog({
     <AlertDialog open={open} onOpenChange={handleOpenChange}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Delete Member</AlertDialogTitle>
+          <AlertDialogTitle>Cancel Leave Request?</AlertDialogTitle>
           <AlertDialogDescription>
-            Are you sure you want to delete <strong>{username}</strong>? This
-            action cannot be undone.
+            This will cancel your pending leave request. This action cannot be
+            undone.
           </AlertDialogDescription>
         </AlertDialogHeader>
 
@@ -78,14 +80,16 @@ export function DeleteConfirmDialog({
         )}
 
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={isPending}>Cancel</AlertDialogCancel>
+          <AlertDialogCancel disabled={isPending}>
+            No, keep it
+          </AlertDialogCancel>
           <AlertDialogAction
-            onClick={handleConfirm}
+            onClick={handleCancel}
             disabled={isPending}
             className="bg-destructive hover:bg-destructive/90"
           >
             {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {isPending ? "Deleting..." : "Delete"}
+            {isPending ? "Cancelling..." : "Yes, cancel leave"}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

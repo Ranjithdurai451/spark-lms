@@ -1,17 +1,31 @@
+// backend/controllers/leaveController.ts
 import type { Request, Response } from "express";
 import { prisma } from "../db";
+import {
+  validateMinNotice,
+  calculateBusinessDays,
+  checkLeaveOverlap,
+} from "../lib/helpers/leaves.helper";
+import { sendLeaveRequestEmail } from "../lib/helpers/mail.helper";
 
 /* ──────────────── GET ALL LEAVES (Organization-wide) ──────────────── */
 export const getAllLeaves = async (req: Request, res: Response) => {
   try {
     const orgId = req.user?.organization?.id;
+
+    if (!orgId) {
+      return res.status(400).json({ message: "Organization not found." });
+    }
+
     const leaves = await prisma.leave.findMany({
       where: { organizationId: orgId },
       include: {
         employee: {
           select: { id: true, username: true, email: true, role: true },
         },
-        approver: { select: { id: true, username: true, email: true } },
+        approver: {
+          select: { id: true, username: true, email: true },
+        },
       },
       orderBy: { createdAt: "desc" },
     });
@@ -29,9 +43,16 @@ export const getAllLeaves = async (req: Request, res: Response) => {
 /* ──────────────── GET MY LEAVES (For Employee) ──────────────── */
 export const getMyLeaves = async (req: Request, res: Response) => {
   try {
-    const orgId = req.user?.organization?.id;
     const leaves = await prisma.leave.findMany({
-      where: { employeeId: req.user.id, organizationId: orgId },
+      where: {
+        employeeId: req.user.id,
+        organizationId: req.user.organization.id,
+      },
+      include: {
+        approver: {
+          select: { id: true, username: true, email: true },
+        },
+      },
       orderBy: { createdAt: "desc" },
     });
 
@@ -49,60 +70,123 @@ export const getMyLeaves = async (req: Request, res: Response) => {
 export const createLeave = async (req: Request, res: Response) => {
   try {
     const orgId = req.user.organization.id;
-    const { type, reason, startDate, endDate, days } = req.body;
+    const { type, reason, startDate, endDate, notifyUsers } = req.body;
 
-    if (!type || !startDate || !endDate || !days)
+    if (!type || !startDate || !endDate) {
       return res.status(400).json({ message: "Missing required fields." });
+    }
 
-    // Find the leave policy
+    // Calculate business days
+    const days = await calculateBusinessDays(
+      new Date(startDate),
+      new Date(endDate),
+      orgId
+    );
+
+    if (days <= 0) {
+      return res.status(400).json({
+        message: "No business days in the selected range.",
+      });
+    }
+
+    // Check overlap
+    const overlapError = await checkLeaveOverlap(
+      req.user.id,
+      new Date(startDate),
+      new Date(endDate)
+    );
+    if (overlapError) {
+      return res.status(400).json({ message: overlapError });
+    }
+
+    // Get leave policy
     const policy = await prisma.leavePolicy.findFirst({
-      where: { name: type, organizationId: orgId },
+      where: {
+        name: type,
+        organizationId: orgId,
+        active: true,
+      },
     });
 
-    if (!policy)
+    if (!policy) {
       return res.status(404).json({ message: "Leave policy not found." });
+    }
 
-    // Check user's leave balance
+    // Check balance
     const balance = await prisma.leaveBalance.findFirst({
       where: {
         employeeId: req.user.id,
-        organizationId: orgId,
         leavePolicyId: policy.id,
       },
     });
 
-    if (!balance)
+    if (!balance || balance.remainingDays < days) {
       return res.status(400).json({
-        message: "You don't have a balance for this leave type.",
+        message: `Insufficient balance. You have ${
+          balance?.remainingDays || 0
+        } day(s) but requested ${days} day(s).`,
       });
+    }
 
-    if (balance.remainingDays < days)
-      return res.status(400).json({
-        message: `Insufficient balance. You only have ${balance.remainingDays} days left.`,
+    // Validate minimum notice
+    const minNoticeError = await validateMinNotice(
+      new Date(startDate),
+      policy.minNotice
+    );
+    if (minNoticeError) {
+      return res.status(400).json({ message: minNoticeError });
+    }
+
+    const leave = await prisma.leave.create({
+      data: {
+        employeeId: req.user.id,
+        organizationId: orgId,
+        approverId: req.user.manager?.id || null,
+        type,
+        reason,
+        startDate: new Date(startDate),
+        endDate: new Date(endDate),
+        days,
+        status: "PENDING",
+      },
+      include: {
+        employee: {
+          select: { id: true, username: true, email: true },
+        },
+        approver: {
+          select: { id: true, username: true, email: true },
+        },
+      },
+    });
+
+    // Send email notifications
+    const notifyEmails: string[] = [];
+
+    if (leave.approver?.email) {
+      notifyEmails.push(leave.approver.email);
+    }
+
+    if (notifyUsers && Array.isArray(notifyUsers)) {
+      const users = await prisma.user.findMany({
+        where: { id: { in: notifyUsers } },
+        select: { email: true },
       });
+      notifyEmails.push(...users.map((u) => u.email));
+    }
 
-    // Create leave + deduct from balance
-    const leave = await prisma.$transaction(async (tx) => {
-      const newLeave = await tx.leave.create({
-        data: {
-          employeeId: req.user.id,
-          organizationId: orgId,
-          type,
-          reason,
+    await Promise.allSettled(
+      notifyEmails.map((email) =>
+        sendLeaveRequestEmail({
+          to: email,
+          employeeName: leave.employee.username,
+          leaveType: type,
           startDate: new Date(startDate),
           endDate: new Date(endDate),
-          days: Number(days),
-          status: "PENDING",
-        },
-      });
-
-      await tx.leaveBalance.update({
-        where: { id: balance.id },
-        data: { remainingDays: { decrement: Number(days) } },
-      });
-
-      return newLeave;
-    });
+          days,
+          reason,
+        })
+      )
+    );
 
     return res.status(201).json({
       message: "Leave request submitted successfully.",
@@ -114,66 +198,139 @@ export const createLeave = async (req: Request, res: Response) => {
   }
 };
 
-/* ──────────────── UPDATE LEAVE (Employee Edit) ──────────────── */
-export const updateLeave = async (req: Request, res: Response) => {
+/* ──────────────── CANCEL LEAVE (Employee) ──────────────── */
+export const cancelLeave = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { type, reason, startDate, endDate, days } = req.body;
 
-    const existing = await prisma.leave.findUnique({ where: { id } });
-    if (!existing) return res.status(404).json({ message: "Leave not found." });
+    const leave = await prisma.leave.findUnique({ where: { id } });
 
-    // Only employee who created the leave can update, and only if pending
-    if (existing.employeeId !== req.user.id)
+    if (!leave) {
+      return res.status(404).json({ message: "Leave not found." });
+    }
+
+    // Only owner can cancel
+    if (leave.employeeId !== req.user.id) {
       return res
         .status(403)
-        .json({ message: "Unauthorized to update this leave." });
+        .json({ message: "Unauthorized to cancel this leave." });
+    }
 
-    if (existing.status !== "PENDING")
-      return res
-        .status(400)
-        .json({ message: "Only pending leaves can be updated." });
+    // Only pending leaves can be cancelled
+    if (leave.status !== "PENDING") {
+      return res.status(400).json({
+        message: `Cannot cancel a ${leave.status.toLowerCase()} leave request.`,
+      });
+    }
 
     const updated = await prisma.leave.update({
       where: { id },
-      data: {
-        type: type ?? existing.type,
-        reason: reason ?? existing.reason,
-        startDate: startDate ? new Date(startDate) : existing.startDate,
-        endDate: endDate ? new Date(endDate) : existing.endDate,
-        days: days ?? existing.days,
+      data: { status: "CANCELLED" },
+      include: {
+        approver: {
+          select: { id: true, username: true, email: true },
+        },
       },
     });
 
-    res
-      .status(200)
-      .json({ message: "Leave updated successfully.", data: updated });
+    res.status(200).json({
+      message: "Leave cancelled successfully.",
+      data: updated,
+    });
   } catch (error) {
-    console.error("❌ updateLeave error:", error);
-    res.status(500).json({ message: "Failed to update leave." });
+    console.error("❌ cancelLeave error:", error);
+    res.status(500).json({ message: "Failed to cancel leave." });
   }
 };
 
-/* ──────────────── APPROVE / REJECT LEAVE (HR / Manager / Admin) ──────────────── */
+/* ──────────────── UPDATE LEAVE STATUS (HR / Manager / Admin) ──────────────── */
 export const updateLeaveStatus = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { status } = req.body; // APPROVED or REJECTED
+    const { status } = req.body;
 
-    if (!["APPROVED", "REJECTED"].includes(status))
+    if (!["APPROVED", "REJECTED"].includes(status)) {
       return res.status(400).json({ message: "Invalid status value." });
+    }
 
-    const leave = await prisma.leave.findUnique({ where: { id } });
-    if (!leave) return res.status(404).json({ message: "Leave not found." });
-
-    const updated = await prisma.leave.update({
+    const leave = await prisma.leave.findUnique({
       where: { id },
-      data: { status, approverId: req.user.id },
+      include: {
+        employee: {
+          select: {
+            id: true,
+            username: true,
+            email: true,
+            managerId: true,
+          },
+        },
+      },
+    });
+
+    if (!leave) {
+      return res.status(404).json({ message: "Leave not found." });
+    }
+
+    // Only pending leaves can be approved/rejected
+    if (leave.status !== "PENDING") {
+      return res.status(400).json({
+        message: `This leave is already ${leave.status.toLowerCase()}.`,
+      });
+    }
+
+    // Authorization
+    const isDirectManager = req.user.id === leave.employee.managerId;
+    const isAuthorizedRole = ["HR", "ADMIN", "MANAGER"].includes(req.user.role);
+    const isAssignedApprover = req.user.id === leave.approverId;
+
+    if (!isDirectManager && !isAuthorizedRole && !isAssignedApprover) {
+      return res.status(403).json({
+        message: "Unauthorized to approve/reject this leave.",
+      });
+    }
+
+    // Update leave and balance in transaction
+    const result = await prisma.$transaction(async (tx) => {
+      const updatedLeave = await tx.leave.update({
+        where: { id },
+        data: {
+          status,
+          approverId: req.user.id,
+        },
+        include: {
+          employee: {
+            select: { id: true, username: true, email: true },
+          },
+          approver: {
+            select: { id: true, username: true, email: true },
+          },
+        },
+      });
+
+      // Handle balance based on status
+      const balance = await tx.leaveBalance.findFirst({
+        where: {
+          employeeId: leave.employeeId,
+          leavePolicy: { name: leave.type },
+        },
+      });
+
+      if (balance && status === "APPROVED") {
+        await tx.leaveBalance.update({
+          where: { id: balance.id },
+          data: {
+            usedDays: { increment: leave.days },
+            remainingDays: { decrement: leave.days },
+          },
+        });
+      }
+
+      return updatedLeave;
     });
 
     res.status(200).json({
       message: `Leave ${status.toLowerCase()} successfully.`,
-      data: updated,
+      data: result,
     });
   } catch (error) {
     console.error("❌ updateLeaveStatus error:", error);
@@ -181,27 +338,52 @@ export const updateLeaveStatus = async (req: Request, res: Response) => {
   }
 };
 
-/* ──────────────── DELETE LEAVE (Employee / HR / Admin) ──────────────── */
+/* ──────────────── DELETE LEAVE (HR / Admin only) ──────────────── */
 export const deleteLeave = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const leave = await prisma.leave.findUnique({ where: { id } });
-    if (!leave) return res.status(404).json({ message: "Leave not found." });
 
-    // Only employee who created it or HR/Admin can delete
-    const allowedRoles = ["HR", "ADMIN"];
-    if (
-      leave.employeeId !== req.user.id &&
-      !allowedRoles.includes(req.user.role)
-    ) {
-      return res
-        .status(403)
-        .json({ message: "Unauthorized to delete this leave." });
+    const leave = await prisma.leave.findUnique({ where: { id } });
+
+    if (!leave) {
+      return res.status(404).json({ message: "Leave not found." });
     }
 
-    await prisma.leave.delete({ where: { id } });
+    // Only HR/ADMIN can delete
+    const allowedRoles = ["HR", "ADMIN"];
+    if (!allowedRoles.includes(req.user.role)) {
+      return res.status(403).json({
+        message: "Unauthorized to delete leaves.",
+      });
+    }
 
-    res.status(200).json({ message: "Leave deleted successfully." });
+    await prisma.$transaction(async (tx) => {
+      // Restore balance if leave was APPROVED
+      if (leave.status === "APPROVED") {
+        const balance = await tx.leaveBalance.findFirst({
+          where: {
+            employeeId: leave.employeeId,
+            leavePolicy: { name: leave.type },
+          },
+        });
+
+        if (balance) {
+          await tx.leaveBalance.update({
+            where: { id: balance.id },
+            data: {
+              usedDays: { decrement: leave.days },
+              remainingDays: { increment: leave.days },
+            },
+          });
+        }
+      }
+
+      await tx.leave.delete({ where: { id } });
+    });
+
+    res.status(200).json({
+      message: "Leave deleted successfully.",
+    });
   } catch (error) {
     console.error("❌ deleteLeave error:", error);
     res.status(500).json({ message: "Failed to delete leave." });

@@ -1,7 +1,8 @@
+// features/leaves/leaveService.ts
 import { api } from "@/config/axios";
 import type { ApiResponse } from "@/features/auth/authService";
 
-export type LeaveStatus = "PENDING" | "APPROVED" | "REJECTED";
+export type LeaveStatus = "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED";
 
 export interface Leave {
   id: string;
@@ -33,20 +34,30 @@ export interface CreateLeaveInput {
   startDate: string;
   endDate: string;
   days: number;
+  notifyUsers: string[];
 }
 
-export interface UpdateLeaveInput {
-  type?: string;
-  reason?: string;
-  startDate?: string;
-  endDate?: string;
-  days?: number;
-  status?: LeaveStatus;
+export interface LeaveBalance {
+  id: string;
+  totalDays: number;
+  remainingDays: number;
+  usedDays: number;
+  carryForward: number;
+  leavePolicy: {
+    id: string;
+    name: string;
+    description?: string;
+    maxDays: number;
+    carryForward: number;
+    requiresApproval: boolean;
+    minNotice: number;
+    active: boolean;
+  };
 }
 
 class LeaveService {
-  static async getAll(orgId: string): Promise<ApiResponse<Leave[]>> {
-    const { data } = await api.get(`/leaves?organizationId=${orgId}`);
+  static async getMyLeaves(): Promise<ApiResponse<Leave[]>> {
+    const { data } = await api.get(`/leaves/my`);
     return data;
   }
 
@@ -57,16 +68,13 @@ class LeaveService {
     return data;
   }
 
-  static async update(payload: {
-    id: string;
-    data: UpdateLeaveInput;
-  }): Promise<ApiResponse<Leave>> {
-    const { data } = await api.put(`/leaves/${payload.id}`, payload.data);
+  static async cancelLeave(id: string): Promise<ApiResponse<Leave>> {
+    const { data } = await api.patch(`/leaves/${id}/cancel`);
     return data;
   }
 
-  static async delete(id: string): Promise<ApiResponse<null>> {
-    const { data } = await api.delete(`/leaves/${id}`);
+  static async getMyBalances(): Promise<ApiResponse<LeaveBalance[]>> {
+    const { data } = await api.get(`/leave-balances/me`);
     return data;
   }
 }

@@ -1,14 +1,19 @@
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { useDeleteHoliday } from "../useHolidays";
+// features/holidays/components/DeleteConfirmDialog.tsx
 import { useState } from "react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AlertCircle, Loader2 } from "lucide-react";
+import { useDeleteHoliday } from "../useHolidays";
+import { queryClient } from "@/features/root/Providers";
 
 interface DeleteConfirmDialogProps {
   open: boolean;
@@ -24,50 +29,68 @@ export function DeleteConfirmDialog({
   onSuccess,
 }: DeleteConfirmDialogProps) {
   const { mutate: deleteHoliday, isPending } = useDeleteHoliday();
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const handleDelete = () => {
+    setError(null);
+
     deleteHoliday(holidayId, {
       onSuccess: () => {
+        queryClient.invalidateQueries(["holidays"] as any);
+
         onSuccess();
         onOpenChange(false);
+        setError(null);
       },
       onError: (err: any) => {
-        setErrorMsg(
-          err.response?.data?.message || "Failed to delete this holiday."
+        setError(
+          err.response?.data?.message ||
+            "Failed to delete holiday. Please try again."
         );
       },
     });
   };
 
+  const handleOpenChange = (open: boolean) => {
+    if (!isPending) {
+      onOpenChange(open);
+      if (!open) {
+        setError(null);
+      }
+    }
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Delete Holiday</DialogTitle>
-          <DialogDescription>
+    <AlertDialog open={open} onOpenChange={handleOpenChange}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Delete Holiday</AlertDialogTitle>
+          <AlertDialogDescription>
             Are you sure you want to delete this holiday? This action cannot be
             undone.
-          </DialogDescription>
-        </DialogHeader>
-        {errorMsg && (
-          <p className="text-xs text-destructive font-medium mb-2">
-            {errorMsg}
-          </p>
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+
+        {/* Error Message */}
+        {error && (
+          <Alert variant="destructive" className="animate-in fade-in-50">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription className="text-xs">{error}</AlertDescription>
+          </Alert>
         )}
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
-          <Button
-            variant="destructive"
+
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={isPending}>Cancel</AlertDialogCancel>
+          <AlertDialogAction
             onClick={handleDelete}
             disabled={isPending}
+            className="bg-destructive hover:bg-destructive/90"
           >
+            {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             {isPending ? "Deleting..." : "Delete"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }

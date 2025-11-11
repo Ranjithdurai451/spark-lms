@@ -20,6 +20,7 @@ export const getMyLeaveBalances = async (req: Request, res: Response) => {
             description: true,
             maxDays: true,
             carryForward: true,
+            minNotice: true,
           },
         },
       },

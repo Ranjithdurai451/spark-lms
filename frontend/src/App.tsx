@@ -3,20 +3,19 @@ import Layout from "@/features/auth/AuthLayout";
 import DefaultBanner from "@/features/root/DefaultBanner";
 import { RegisterPage } from "@/features/auth/register-admin/RegisterPage";
 import { useAppDispatch } from "./lib/hooks";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import PublicRoute from "./features/root/PublicRoute";
 import RootLayout from "./features/root/RootLayout";
 import { LoginPage } from "./features/auth/pages/LoginPage";
 import { InvitedAccountCreatePage } from "./features/auth/pages/InvitedAccountCreatePage";
 import ForgotPasswordPage from "./features/auth/pages/ForgotPasswordPage";
 import ResetPasswordPage from "./features/auth/pages/ResetpasswordPage";
-import { useCheckAuth } from "./features/auth/useAuth";
 import DashboardPage from "./features/dashboard/DashboardPage";
 import { OrganizationPage } from "./features/organization/OrganizationPage";
 import ProtectedRoute from "./features/root/ProctectedRoute";
 import { HolidaysPage } from "./features/holidays/HolidaysPage";
 import { LeavePolicyPage } from "./features/leave-policy/LeavePolicyPage";
-import { LeavesPage } from "./features/leaves/LeavesPage";
+import { MyLeavesPage } from "./features/my-leaves/MyLeavesPage";
 
 function App() {
   const dispatch = useAppDispatch();
@@ -101,8 +100,8 @@ function App() {
           element: <LeavePolicyPage />,
         },
         {
-          path: "leaves",
-          element: <LeavesPage />,
+          path: "my-leaves",
+          element: <MyLeavesPage />,
         },
       ],
     },

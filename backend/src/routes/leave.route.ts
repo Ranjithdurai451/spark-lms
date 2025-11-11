@@ -1,5 +1,4 @@
 import express from "express";
-
 import {
   authenticate,
   authorizeOrganization,
@@ -9,7 +8,7 @@ import {
   getAllLeaves,
   getMyLeaves,
   createLeave,
-  updateLeave,
+  cancelLeave,
   updateLeaveStatus,
   deleteLeave,
 } from "../controllers/leaves.controller";
@@ -18,17 +17,17 @@ const router = express.Router();
 
 /* ──────────────── Routes ──────────────── */
 
-// For HR/Admin/Manager to view all leaves in organization
-router.get("/", authenticate, authorizeOrganization, getAllLeaves);
-
 // For Employee to view their own leaves
 router.get("/my", authenticate, authorizeOrganization, getMyLeaves);
+
+// For HR/Admin/Manager to view all leaves in organization
+router.get("/", authenticate, authorizeOrganization, getAllLeaves);
 
 // Create new leave (Employee)
 router.post("/", authenticate, authorizeOrganization, createLeave);
 
-// Update leave (Employee edits pending request)
-router.put("/:id", authenticate, authorizeOrganization, updateLeave);
+// Cancel leave (Employee - only for pending leaves)
+router.patch("/:id/cancel", authenticate, authorizeOrganization, cancelLeave);
 
 // Approve / Reject leave (HR / Admin / Manager)
 router.patch(
@@ -39,7 +38,13 @@ router.patch(
   updateLeaveStatus
 );
 
-// Delete leave (Employee / HR / Admin)
-router.delete("/:id", authenticate, authorizeOrganization, deleteLeave);
+// Delete leave (HR / Admin only)
+router.delete(
+  "/:id",
+  authenticate,
+  authorizeOrganization,
+  authorizeRoles("HR", "ADMIN"),
+  deleteLeave
+);
 
 export { router as leaveRouter };

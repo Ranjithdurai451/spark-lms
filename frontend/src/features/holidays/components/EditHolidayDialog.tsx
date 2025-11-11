@@ -1,10 +1,8 @@
-"use client";
-
+// features/holidays/components/EditHolidayDialog.tsx
 import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
@@ -20,7 +18,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { CalendarIcon } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { CalendarIcon, AlertCircle, Loader2, Edit2 } from "lucide-react";
 import {
   Popover,
   PopoverContent,
@@ -31,6 +30,7 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useUpdateHoliday } from "../useHolidays";
 import type { HOLIDAY_TYPE } from "@/lib/types";
+import { queryClient } from "@/features/root/Providers";
 
 interface EditHolidayDialogProps {
   holiday: any;
@@ -57,7 +57,7 @@ export function EditHolidayDialog({
     recurring: false,
   });
 
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [datePickerOpen, setDatePickerOpen] = useState(false);
 
   const { mutate: updateHoliday, isPending } = useUpdateHoliday();
@@ -70,27 +70,31 @@ export function EditHolidayDialog({
         type: holiday.type,
         recurring: holiday.recurring,
       });
+      setError(null);
     }
   }, [holiday]);
 
   const handleSubmit = () => {
     if (!form.name || !form.date) {
-      setErrorMsg("Name and date are required.");
+      setError("Name and date are required.");
       return;
     }
-    setErrorMsg(null);
+    setError(null);
 
     updateHoliday(
       { id: holiday.id, data: { ...form, date: form.date.toISOString() } },
       {
         onSuccess: () => {
+          queryClient.invalidateQueries(["holidays"] as any);
+
           onSuccess();
           onOpenChange(false);
+          setError(null);
         },
         onError: (err: any) => {
-          setErrorMsg(
+          setError(
             err.response?.data?.message ||
-              "Something went wrong. Please try again."
+              "Failed to update holiday. Please try again."
           );
         },
       }
@@ -99,36 +103,43 @@ export function EditHolidayDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[480px]">
+      <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle className="text-lg font-semibold">
+          <DialogTitle className="text-lg font-semibold flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+              <Edit2 className="w-4 h-4 text-primary" />
+            </div>
             Edit Holiday
           </DialogTitle>
-          <DialogDescription>
-            Modify the details of this holiday.
-          </DialogDescription>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Update holiday details
+          </p>
         </DialogHeader>
 
-        <div className="space-y-5 mt-2">
+        <div className="space-y-4 pt-2">
           {/* Name */}
-          <div className="space-y-1">
-            <Label htmlFor="name">Holiday Name</Label>
+          <div className="space-y-2">
+            <Label className="text-xs font-medium text-muted-foreground">
+              Holiday Name
+            </Label>
             <Input
-              id="name"
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
+              className="h-9"
             />
           </div>
 
-          {/* Date Picker with Dropdowns */}
-          <div className="space-y-1">
-            <Label>Date</Label>
+          {/* Date Picker */}
+          <div className="space-y-2">
+            <Label className="text-xs font-medium text-muted-foreground">
+              Date
+            </Label>
             <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
               <PopoverTrigger asChild>
                 <Button
                   variant="outline"
                   className={cn(
-                    "w-full justify-start text-left font-normal",
+                    "w-full justify-start text-left font-normal h-9",
                     !form.date && "text-muted-foreground"
                   )}
                 >
@@ -136,10 +147,7 @@ export function EditHolidayDialog({
                   {form.date ? format(form.date, "PPP") : "Pick a date"}
                 </Button>
               </PopoverTrigger>
-              <PopoverContent
-                className="w-auto p-0 animate-in fade-in-50 slide-in-from-top-2"
-                align="start"
-              >
+              <PopoverContent className="w-auto p-0" align="start">
                 <Calendar
                   mode="single"
                   captionLayout="dropdown"
@@ -148,19 +156,22 @@ export function EditHolidayDialog({
                     setForm({ ...form, date: date ?? undefined });
                     setDatePickerOpen(false);
                   }}
+                  initialFocus
                 />
               </PopoverContent>
             </Popover>
           </div>
 
           {/* Type */}
-          <div className="space-y-1">
-            <Label>Type</Label>
+          <div className="space-y-2">
+            <Label className="text-xs font-medium text-muted-foreground">
+              Type
+            </Label>
             <Select
               value={form.type}
               onValueChange={(type: HOLIDAY_TYPE) => setForm({ ...form, type })}
             >
-              <SelectTrigger>
+              <SelectTrigger className="h-9">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -171,29 +182,54 @@ export function EditHolidayDialog({
           </div>
 
           {/* Recurring */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center space-x-2">
             <Checkbox
-              id="recurring"
+              id="recurring-edit"
               checked={form.recurring}
               onCheckedChange={(checked) =>
                 setForm({ ...form, recurring: !!checked })
               }
             />
-            <Label htmlFor="recurring">Recurring yearly</Label>
+            <Label
+              htmlFor="recurring-edit"
+              className="text-sm font-normal cursor-pointer"
+            >
+              Recurring yearly
+            </Label>
           </div>
 
-          {errorMsg && (
-            <p className="text-xs text-destructive font-medium">{errorMsg}</p>
+          {/* Error Message */}
+          {error && (
+            <Alert variant="destructive" className="py-2 animate-in fade-in-50">
+              <AlertCircle className="h-3.5 w-3.5" />
+              <AlertDescription className="text-[11px]">
+                {error}
+              </AlertDescription>
+            </Alert>
           )}
         </div>
 
         <DialogFooter className="pt-4">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
-          <Button onClick={handleSubmit} disabled={isPending}>
-            {isPending ? "Updating..." : "Update Holiday"}
-          </Button>
+          <div className="flex gap-2 w-full">
+            <Button
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              disabled={isPending}
+              className="flex-1 h-9 text-xs"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSubmit}
+              disabled={isPending}
+              className="flex-1 h-9 text-xs font-medium"
+            >
+              {isPending && (
+                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+              )}
+              {isPending ? "Updating..." : "Update Holiday"}
+            </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>

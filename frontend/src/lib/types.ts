@@ -4,7 +4,7 @@ export interface Organization {
   organizationCode: string;
   organizationDescription?: string | null;
 }
-export type Role = "ADMIN" | "HR" | "EMPLOYEE";
+export type Role = "ADMIN" | "HR" | "EMPLOYEE" | "MANAGER";
 export interface User {
   id: string;
   email: string;

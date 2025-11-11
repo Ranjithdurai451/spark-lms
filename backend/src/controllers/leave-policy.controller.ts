@@ -5,8 +5,10 @@ import { createBalancesForPolicy } from "../lib/helpers/leave-balance.helper";
 /* ─────────────────── Get Leave Policies ─────────────────── */
 export const getLeavePolicies = async (req: Request, res: Response) => {
   try {
-    const { organizationId } = req.params;
-
+    // const { organizationId } = req.params;
+    // console.log(organizationId);
+    const organizationId = req.user.organization.id;
+    //
     const policies = await prisma.leavePolicy.findMany({
       where: { organizationId },
       orderBy: { createdAt: "desc" },

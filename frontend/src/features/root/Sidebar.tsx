@@ -19,7 +19,8 @@ interface SidebarProps {
 export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const links = [
     { href: "/in", label: "Dashboard", icon: LayoutDashboard },
-    { href: "/in/leaves", label: "Leave Requests", icon: Calendar },
+    { href: "/in/my-leaves", label: "My Leaves", icon: Calendar },
+    // { href: "/in/leave-requests", label: "Leave Requests", icon: Calendar },
     { href: "/in/leave-policy", label: "Leave Policy", icon: Shield },
     { href: "/in/holidays", label: "Holidays", icon: Clock },
     { href: "/in/organization", label: "Organization", icon: Building2 },
