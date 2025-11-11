@@ -1,21 +1,22 @@
-// features/leaves/MyLeavesPage.tsx
-import { useState } from "react";
+// features/leave-requests/LeaveRequestsPage.tsx
+import { useState, useMemo } from "react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  Plus,
-  Calendar,
   Clock,
   CheckCircle,
   XCircle,
-  MoreHorizontal,
-  Eye,
   Ban,
+  MoreHorizontal,
   LayoutGrid,
   Table as TableIcon,
-  TrendingUp,
+  Calendar,
+  RefreshCcw,
+  Eye,
+  Trash2,
+  UserCircle,
   Loader,
 } from "lucide-react";
 import {
@@ -25,56 +26,50 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { RequestLeaveSheet } from "./components/RequestLeaveSheet";
-import { ViewLeaveDialog } from "./components/ViewLeaveDialog";
-import { CancelLeaveDialog } from "./components/CancelLeaveDialog";
+import {
+  ViewLeaveDialog,
+  type LeaveRequest,
+} from "./components/ViewLeaveDialog";
 import { queryClient } from "../root/Providers";
 import { cn } from "@/lib/utils";
-import { LeaveSkeleton } from "./components/LeaveSkeleton";
 import { format, formatDistanceToNow } from "date-fns";
-import type { Leave } from "./MyleavesService";
-import { useGetMyLeaves } from "./useMyLeaves";
+import { LeaveSkeleton } from "../my-leaves/components/LeaveSkeleton";
+import { useGetAllLeaves } from "./useLeaveRequests";
+import { ApproveRejectDialog } from "./components/ApproveRejectDialog";
+import { DeleteLeaveDialog } from "./components/DeleteLeaveDialog";
 
-export function MyLeavesPage() {
+export function LeaveRequestsPage() {
   const [activeTab, setActiveTab] = useState("all");
   const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
-  const [isRequestSheetOpen, setIsRequestSheetOpen] = useState(false);
-  const [viewingLeave, setViewingLeave] = useState<Leave | null>(null);
-  const [cancellingId, setCancellingId] = useState<string | null>(null);
+  const [viewingLeave, setViewingLeave] = useState<LeaveRequest | null>(null);
+  const [actionLeave, setActionLeave] = useState<{
+    leave: LeaveRequest;
+    action: "APPROVED" | "REJECTED";
+  } | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  const { data, isLoading, isError, refetch, isFetching } = useGetMyLeaves();
+  const { data, isLoading, isError, refetch, isFetching } = useGetAllLeaves();
   const leaves = data?.data ?? [];
 
-  const handleRefetch = () => {
-    queryClient.invalidateQueries(["my-leaves"] as any);
-    queryClient.invalidateQueries(["leave-balances"] as any);
-  };
-
-  if (isLoading) return <LeaveSkeleton />;
-
-  if (isError)
-    return (
-      <div className="flex flex-col items-center justify-center h-[70vh] space-y-4">
-        <XCircle className="w-16 h-16 text-destructive" />
-        <p className="text-lg font-semibold text-destructive">
-          Failed to load your leaves
-        </p>
-        <Button onClick={() => refetch()} variant="outline">
-          Retry
-        </Button>
-      </div>
-    );
-
-  const filteredLeaves =
-    activeTab === "all"
+  const filteredLeaves = useMemo(() => {
+    return activeTab === "all"
       ? leaves
       : leaves.filter((l) => l.status.toLowerCase() === activeTab);
+  }, [leaves, activeTab]);
 
-  const stats = {
-    pending: leaves.filter((l) => l.status === "PENDING").length,
-    approved: leaves.filter((l) => l.status === "APPROVED").length,
-    rejected: leaves.filter((l) => l.status === "REJECTED").length,
-    cancelled: leaves.filter((l) => l.status === "CANCELLED").length,
+  const stats = useMemo(
+    () => ({
+      pending: leaves.filter((l) => l.status === "PENDING").length,
+      approved: leaves.filter((l) => l.status === "APPROVED").length,
+      rejected: leaves.filter((l) => l.status === "REJECTED").length,
+      cancelled: leaves.filter((l) => l.status === "CANCELLED").length,
+    }),
+    [leaves]
+  );
+
+  const handleRefetch = () => {
+    queryClient.invalidateQueries(["leave-requests"] as any);
+    // refetch();
   };
 
   const getStatusIcon = (status: string, size: string = "w-4 h-4") => {
@@ -95,13 +90,48 @@ export function MyLeavesPage() {
       case "APPROVED":
         return "bg-green-50 text-green-700 border-green-200 dark:border-none dark:bg-green-950/30";
       case "REJECTED":
-        return "bg-red-50 text-red-700 border-red-200  dark:border-none dark:bg-red-950/30";
+        return "bg-red-50 text-red-700 border-red-200 dark:border-none dark:bg-red-950/30";
       case "CANCELLED":
         return "bg-gray-50 text-gray-700 border-gray-200 dark:border-none dark:bg-gray-950/30";
       default:
         return "bg-yellow-50 text-yellow-700 border-yellow-200 dark:border-none dark:bg-yellow-950/30";
     }
   };
+
+  const getTypeColor = (type: string) => {
+    const typeColors: Record<string, string> = {
+      "Annual Leave":
+        "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/30 dark:text-blue-400",
+      "Sick Leave":
+        "bg-red-50 text-red-700 border-red-200 dark:bg-red-950/30 dark:text-red-400",
+      "Casual Leave":
+        "bg-green-50 text-green-700 border-green-200 dark:bg-green-950/30 dark:text-green-400",
+      "Maternity Leave":
+        "bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/30 dark:text-purple-400",
+      "Paternity Leave":
+        "bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/30 dark:text-indigo-400",
+      "Unpaid Leave":
+        "bg-gray-50 text-gray-700 border-gray-200 dark:bg-gray-950/30 dark:text-gray-400",
+    };
+
+    return typeColors[type] || "bg-primary/10 text-primary border-primary/20";
+  };
+
+  // CONDITIONAL RETURNS AFTER HOOKS
+  if (isLoading) return <LeaveSkeleton />;
+
+  if (isError)
+    return (
+      <div className="flex flex-col items-center justify-center h-[70vh] space-y-4">
+        <XCircle className="w-16 h-16 text-destructive" />
+        <p className="text-lg font-semibold text-destructive">
+          Failed to load leave requests
+        </p>
+        <Button onClick={() => refetch()} variant="outline">
+          Retry
+        </Button>
+      </div>
+    );
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20">
@@ -111,43 +141,28 @@ export function MyLeavesPage() {
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
-                My Leaves
+                Leave Requests
               </h1>
               {isFetching && (
                 <Loader className="w-4 h-4 animate-spin text-muted-foreground" />
               )}
             </div>
             <p className="text-sm text-muted-foreground">
-              Manage your time off and track leave requests
+              Review and manage leave requests
             </p>
           </div>
           <Button
-            size="default"
-            className="gap-2 shadow-lg hover:shadow-xl transition-all"
-            onClick={() => setIsRequestSheetOpen(true)}
+            size="sm"
+            variant="outline"
+            className="gap-2"
+            onClick={handleRefetch}
           >
-            <Plus className="w-4 h-4" /> Request Leave
+            <RefreshCcw className="w-4 h-4" /> Refresh
           </Button>
         </div>
 
-        {/* Stats Cards - Enhanced */}
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 sm:gap-4">
-          <Card className="border-none shadow-md hover:shadow-lg transition-shadow bg-gradient-to-br from-primary/5 to-primary/10">
-            <CardContent className="p-4">
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <p className="text-xs font-medium text-muted-foreground">
-                    Total Requests
-                  </p>
-                  <TrendingUp className="w-4 h-4 text-primary/60" />
-                </div>
-                <p className="text-3xl font-bold text-primary">
-                  {leaves.length}
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-
+        {/* Stats Cards */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
           <Card className="border-none shadow-md hover:shadow-lg transition-shadow bg-gradient-to-br from-yellow-50 to-yellow-100/50 dark:from-yellow-950/30 dark:to-yellow-900/20">
             <CardContent className="p-4">
               <div className="space-y-2">
@@ -270,48 +285,114 @@ export function MyLeavesPage() {
                   <Calendar className="w-8 h-8 text-muted-foreground" />
                 </div>
                 <p className="text-lg font-medium text-foreground">
-                  No {activeTab !== "all" && activeTab} leaves found
+                  No {activeTab !== "all" && activeTab} leave requests found
                 </p>
-                <p className="text-sm text-muted-foreground mt-1 mb-4">
-                  Start by requesting your first leave
+                <p className="text-sm text-muted-foreground mt-1">
+                  Leave requests will appear here
                 </p>
-                <Button
-                  variant="outline"
-                  onClick={() => setIsRequestSheetOpen(true)}
-                  className="gap-2"
-                >
-                  <Plus className="w-4 h-4" />
-                  Request Leave
-                </Button>
               </div>
             ) : viewMode === "grid" ? (
-              /* Enhanced Grid View */
+              /* Grid View */
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-6">
                 {filteredLeaves.map((leave) => (
                   <Card
                     key={leave.id}
                     className="group hover:shadow-xl transition-all duration-300 cursor-pointer border-none shadow-md overflow-hidden"
-                    onClick={() => setViewingLeave(leave)}
                   >
                     <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-primary to-primary/50" />
                     <CardContent className="p-4 pl-5">
                       <div className="space-y-3">
                         {/* Header */}
                         <div className="flex items-start justify-between gap-2">
-                          <Badge variant="secondary" className="font-medium">
-                            {leave.type}
-                          </Badge>
                           <Badge
                             className={cn(
-                              "gap-1.5 border",
-                              getStatusColor(leave.status)
+                              "font-medium border px-2.5 py-0.5",
+                              getTypeColor(leave.type)
                             )}
                           >
-                            {getStatusIcon(leave.status, "w-3 h-3")}
-                            <span className="text-xs font-medium">
-                              {leave.status}
-                            </span>
+                            {leave.type}
                           </Badge>
+                          <div className="flex items-center gap-2">
+                            <Badge
+                              className={cn(
+                                "gap-1.5 border",
+                                getStatusColor(leave.status)
+                              )}
+                            >
+                              {getStatusIcon(leave.status, "w-3 h-3")}
+                              <span className="text-xs font-medium">
+                                {leave.status}
+                              </span>
+                            </Badge>
+
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 shrink-0"
+                                >
+                                  <MoreHorizontal className="w-4 h-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="w-40">
+                                <DropdownMenuItem
+                                  onClick={() => setViewingLeave(leave)}
+                                >
+                                  <Eye className="w-4 h-4 mr-2" />
+                                  View Details
+                                </DropdownMenuItem>
+                                {leave.status === "PENDING" && (
+                                  <>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem
+                                      onClick={() =>
+                                        setActionLeave({
+                                          leave,
+                                          action: "APPROVED",
+                                        })
+                                      }
+                                    >
+                                      <CheckCircle className="w-4 h-4 mr-2 text-green-600" />
+                                      Approve
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                      onClick={() =>
+                                        setActionLeave({
+                                          leave,
+                                          action: "REJECTED",
+                                        })
+                                      }
+                                    >
+                                      <XCircle className="w-4 h-4 mr-2 text-red-600" />
+                                      Reject
+                                    </DropdownMenuItem>
+                                  </>
+                                )}
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  onClick={() => setDeletingId(leave.id)}
+                                  className="text-destructive focus:text-destructive"
+                                >
+                                  <Trash2 className="w-4 h-4 mr-2" />
+                                  Delete
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
+                        </div>
+
+                        {/* Employee Info */}
+                        <div className="flex items-center gap-2 pt-2 border-t">
+                          <UserCircle className="w-4 h-4 text-muted-foreground shrink-0" />
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs font-semibold truncate">
+                              {leave.employee.username}
+                            </p>
+                            <p className="text-[10px] text-muted-foreground truncate">
+                              {leave.employee.email}
+                            </p>
+                          </div>
                         </div>
 
                         {/* Duration */}
@@ -339,20 +420,32 @@ export function MyLeavesPage() {
                           </p>
                         )}
 
-                        {/* Actions */}
+                        {/* Quick Actions */}
                         {leave.status === "PENDING" && (
                           <div className="pt-2 border-t flex gap-2">
                             <Button
-                              variant="ghost"
+                              variant="outline"
                               size="sm"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                setCancellingId(leave.id);
+                                setActionLeave({ leave, action: "APPROVED" });
                               }}
-                              className="flex-1 h-8 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
+                              className="flex-1 h-8 text-xs text-green-700 hover:text-green-700 hover:bg-green-50 dark:hover:bg-green-950/30"
                             >
-                              <Ban className="w-3 h-3 mr-1.5" />
-                              Cancel Request
+                              <CheckCircle className="w-3 h-3 mr-1.5" />
+                              Approve
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setActionLeave({ leave, action: "REJECTED" });
+                              }}
+                              className="flex-1 h-8 text-xs text-red-700 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30"
+                            >
+                              <XCircle className="w-3 h-3 mr-1.5" />
+                              Reject
                             </Button>
                           </div>
                         )}
@@ -362,11 +455,14 @@ export function MyLeavesPage() {
                 ))}
               </div>
             ) : (
-              /* Enhanced Table View */
+              /* Table View */
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead className="bg-muted/50 border-b">
                     <tr>
+                      <th className="p-4 text-left text-xs font-semibold text-muted-foreground">
+                        EMPLOYEE
+                      </th>
                       <th className="p-4 text-left text-xs font-semibold text-muted-foreground">
                         TYPE
                       </th>
@@ -394,7 +490,22 @@ export function MyLeavesPage() {
                         className="border-b hover:bg-muted/30 transition-colors group"
                       >
                         <td className="p-4">
-                          <Badge variant="secondary" className="font-medium">
+                          <div>
+                            <p className="text-sm font-medium">
+                              {leave.employee.username}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {leave.employee.email}
+                            </p>
+                          </div>
+                        </td>
+                        <td className="p-4">
+                          <Badge
+                            className={cn(
+                              "font-medium border",
+                              getTypeColor(leave.type)
+                            )}
+                          >
                             {leave.type}
                           </Badge>
                         </td>
@@ -464,14 +575,37 @@ export function MyLeavesPage() {
                                 <>
                                   <DropdownMenuSeparator />
                                   <DropdownMenuItem
-                                    onClick={() => setCancellingId(leave.id)}
-                                    className="text-destructive focus:text-destructive"
+                                    onClick={() =>
+                                      setActionLeave({
+                                        leave,
+                                        action: "APPROVED",
+                                      })
+                                    }
                                   >
-                                    <Ban className="w-4 h-4 mr-2" />
-                                    Cancel
+                                    <CheckCircle className="w-4 h-4 mr-2 text-green-600" />
+                                    Approve
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={() =>
+                                      setActionLeave({
+                                        leave,
+                                        action: "REJECTED",
+                                      })
+                                    }
+                                  >
+                                    <XCircle className="w-4 h-4 mr-2 text-red-600" />
+                                    Reject
                                   </DropdownMenuItem>
                                 </>
                               )}
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                onClick={() => setDeletingId(leave.id)}
+                                className="text-destructive focus:text-destructive"
+                              >
+                                <Trash2 className="w-4 h-4 mr-2" />
+                                Delete
+                              </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </td>
@@ -485,23 +619,27 @@ export function MyLeavesPage() {
         </Card>
 
         {/* Dialogs */}
-        <RequestLeaveSheet
-          open={isRequestSheetOpen}
-          onOpenChange={setIsRequestSheetOpen}
-          onSuccess={handleRefetch}
-        />
-
         <ViewLeaveDialog
           leave={viewingLeave}
           open={!!viewingLeave}
           onOpenChange={(o) => !o && setViewingLeave(null)}
         />
 
-        {cancellingId && (
-          <CancelLeaveDialog
-            open={!!cancellingId}
-            onOpenChange={(o) => !o && setCancellingId(null)}
-            leaveId={cancellingId}
+        {actionLeave && (
+          <ApproveRejectDialog
+            open={!!actionLeave}
+            onOpenChange={(o) => !o && setActionLeave(null)}
+            leave={actionLeave.leave}
+            action={actionLeave.action}
+            onSuccess={handleRefetch}
+          />
+        )}
+
+        {deletingId && (
+          <DeleteLeaveDialog
+            open={!!deletingId}
+            onOpenChange={(o) => !o && setDeletingId(null)}
+            leaveId={deletingId}
             onSuccess={handleRefetch}
           />
         )}

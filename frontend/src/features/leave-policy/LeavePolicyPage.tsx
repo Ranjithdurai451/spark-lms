@@ -66,7 +66,7 @@ export function LeavePolicyPage() {
 
   const handleRefetchAfterChange = () => {
     queryClient.invalidateQueries(["leave-policies", orgId] as any);
-    refetch();
+    // refetch();
   };
 
   // CONDITIONAL RETURNS AFTER HOOKS

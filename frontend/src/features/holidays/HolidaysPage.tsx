@@ -85,7 +85,7 @@ export function HolidaysPage() {
 
   const handleRefetch = () => {
     queryClient.invalidateQueries(["holidays", orgId] as any);
-    refetch();
+    // refetch();
   };
 
   // NOW CONDITIONAL RETURNS - AFTER ALL HOOKS

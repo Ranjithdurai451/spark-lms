@@ -1,3 +1,4 @@
+// App.tsx
 import { createBrowserRouter, RouterProvider } from "react-router";
 import Layout from "@/features/auth/AuthLayout";
 import DefaultBanner from "@/features/root/DefaultBanner";
@@ -10,12 +11,14 @@ import { LoginPage } from "./features/auth/pages/LoginPage";
 import { InvitedAccountCreatePage } from "./features/auth/pages/InvitedAccountCreatePage";
 import ForgotPasswordPage from "./features/auth/pages/ForgotPasswordPage";
 import ResetPasswordPage from "./features/auth/pages/ResetpasswordPage";
-import DashboardPage from "./features/dashboard/DashboardPage";
 import { OrganizationPage } from "./features/organization/OrganizationPage";
-import ProtectedRoute from "./features/root/ProctectedRoute";
 import { HolidaysPage } from "./features/holidays/HolidaysPage";
 import { LeavePolicyPage } from "./features/leave-policy/LeavePolicyPage";
 import { MyLeavesPage } from "./features/my-leaves/MyLeavesPage";
+import { LeaveRequestsPage } from "./features/leave-requests/LeaveRequestsPage";
+import { DashboardPage } from "./features/dashboard/DashboardPage";
+import ProtectedRoute from "./features/root/ProctectedRoute";
+import { ProfilePage } from "./features/profile/ProfilePage";
 
 function App() {
   const dispatch = useAppDispatch();
@@ -85,40 +88,65 @@ function App() {
       children: [
         {
           index: true,
-          element: <DashboardPage />,
+          element: <DashboardPage />, // All roles can access dashboard
         },
         {
           path: "organization",
-          element: <OrganizationPage />,
+          element: (
+            <ProtectedRoute allowedRoles={["ADMIN", "HR"]}>
+              <OrganizationPage />
+            </ProtectedRoute>
+          ),
         },
         {
           path: "holidays",
-          element: <HolidaysPage />,
+          element: (
+            <ProtectedRoute allowedRoles={["ADMIN", "HR"]}>
+              <HolidaysPage />
+            </ProtectedRoute>
+          ),
         },
         {
           path: "leave-policy",
-          element: <LeavePolicyPage />,
+          element: (
+            <ProtectedRoute allowedRoles={["ADMIN", "HR"]}>
+              <LeavePolicyPage />
+            </ProtectedRoute>
+          ),
         },
         {
           path: "my-leaves",
-          element: <MyLeavesPage />,
+          element: <MyLeavesPage />, // All roles can access
         },
+        {
+          path: "leave-requests",
+          element: (
+            <ProtectedRoute allowedRoles={["ADMIN", "HR", "MANAGER"]}>
+              <LeaveRequestsPage />
+            </ProtectedRoute>
+          ),
+        },
+        {
+          path: "profile",
+          element: <ProfilePage />,
+        },
+        {
+          path: "profile/:userId",
+          element: <ProfilePage />,
+        },
+        // {
+        //   path: "unauthorized",
+        //   element: <UnauthorizedPage />,
+        // },
       ],
     },
   ]);
-  // const { data, error } = useCheckAuth();
+
   useEffect(() => {
     const user = localStorage.getItem("user");
     if (user) dispatch.auth.setUser(JSON.parse(user));
   }, []);
-  // useEffect(() => {
-  //   if (data) {
-  //     dispatch.auth.setUser(data.user);
-  //   } else {
-  //     dispatch.auth.clearUser();
-  //   }
-  // }, [data, error]);
-  cookieStore.get("auth-token");
+
   return <RouterProvider router={router} />;
 }
 

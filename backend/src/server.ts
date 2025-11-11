@@ -48,7 +48,7 @@ app.use("/holidays", holidayRouter);
 app.use("/leave-policies", leavePolicyRouter);
 app.use("/leaves", leaveRouter);
 app.use("/leave-balances", leaveBalanceRouter);
-
+app.use("/users", userRouter);
 (async () => {
   try {
     await prisma.$connect();

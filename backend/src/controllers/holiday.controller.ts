@@ -3,12 +3,12 @@ import { prisma } from "../db";
 
 export const getHolidays = async (req: Request, res: Response) => {
   try {
-    const { type, recurring } = req.query;
+    // const { type, recurring } = req.query;
     const organizationId = req.user.organization.id;
     const filters: any = { organizationId };
-    if (type) filters.type = type;
-    if (recurring !== undefined)
-      filters.recurring = recurring === "true" ? true : false;
+    // if (type) filters.type = type;
+    // if (recurring !== undefined)
+    //   filters.recurring = recurring === "true" ? true : false;
 
     const holidays = await prisma.holiday.findMany({
       where: filters,

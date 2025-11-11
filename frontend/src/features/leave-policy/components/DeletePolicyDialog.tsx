@@ -2,7 +2,6 @@
 import { useState } from "react";
 import {
   AlertDialog,
-  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
@@ -10,6 +9,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle, Loader2 } from "lucide-react";
 import { useDeleteLeavePolicy } from "../useLeavePolicy";
@@ -27,7 +27,8 @@ export function DeletePolicyDialog({
   const { mutate: deletePolicy, isPending } = useDeleteLeavePolicy();
   const [error, setError] = useState<string | null>(null);
 
-  const handleDelete = () => {
+  const handleDelete = (e: React.MouseEvent) => {
+    e.preventDefault(); // Prevent default dialog close behavior
     setError(null);
 
     deletePolicy(policy.id, {
@@ -76,14 +77,15 @@ export function DeletePolicyDialog({
 
         <AlertDialogFooter>
           <AlertDialogCancel disabled={isPending}>Cancel</AlertDialogCancel>
-          <AlertDialogAction
+          {/* Use Button instead of AlertDialogAction for proper loading control */}
+          <Button
             onClick={handleDelete}
             disabled={isPending}
             className="bg-destructive hover:bg-destructive/90"
           >
             {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             {isPending ? "Deleting..." : "Delete"}
-          </AlertDialogAction>
+          </Button>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

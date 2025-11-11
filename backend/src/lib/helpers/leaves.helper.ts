@@ -1,3 +1,4 @@
+// backend/lib/helpers/leaves.helper.ts
 import { prisma } from "../../db";
 
 /**
@@ -8,28 +9,46 @@ export async function calculateBusinessDays(
   endDate: Date,
   organizationId: string
 ): Promise<number> {
+  // Normalize dates to avoid timezone issues
+  const normalizeDate = (date: Date) => {
+    const d = new Date(date);
+    d.setHours(0, 0, 0, 0);
+    return d;
+  };
+
+  const start = normalizeDate(startDate);
+  const end = normalizeDate(endDate);
+
   // Fetch holidays for the organization
   const holidays = await prisma.holiday.findMany({
     where: {
       organizationId,
       date: {
-        gte: startDate,
-        lte: endDate,
+        gte: start,
+        lte: end,
       },
     },
     select: { date: true },
   });
 
   const holidayDates = new Set(
-    holidays.map((h) => h.date.toISOString().split("T")[0])
+    holidays.map((h) => {
+      const d = new Date(h.date);
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(
+        2,
+        "0"
+      )}-${String(d.getDate()).padStart(2, "0")}`;
+    })
   );
 
   let businessDays = 0;
-  const currentDate = new Date(startDate);
+  const currentDate = new Date(start);
 
-  while (currentDate <= endDate) {
+  while (currentDate <= end) {
     const dayOfWeek = currentDate.getDay();
-    const dateString = currentDate.toISOString().split("T")[0];
+    const dateString = `${currentDate.getFullYear()}-${String(
+      currentDate.getMonth() + 1
+    ).padStart(2, "0")}-${String(currentDate.getDate()).padStart(2, "0")}`;
 
     // Check if it's not weekend (0 = Sunday, 6 = Saturday)
     const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
@@ -108,11 +127,14 @@ export async function validateMinNotice(
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  const diffTime = startDate.getTime() - today.getTime();
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  const start = new Date(startDate);
+  start.setHours(0, 0, 0, 0);
+
+  const diffTime = start.getTime() - today.getTime();
+  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
 
   if (diffDays < minNoticeDays) {
-    return `This leave type requires at least ${minNoticeDays} day(s) notice. You provided ${diffDays} day(s).`;
+    return `This leave type requires at least ${minNoticeDays} day(s) advance notice. You provided ${diffDays} day(s).`;
   }
 
   return null;

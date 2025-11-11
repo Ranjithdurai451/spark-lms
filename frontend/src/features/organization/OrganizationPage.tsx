@@ -38,7 +38,6 @@ import { queryClient } from "../root/Providers";
 import { DeleteConfirmDialog } from "./components/delete-confirm-dialog";
 
 export function OrganizationPage() {
-  // ALL HOOKS MUST BE AT THE TOP - BEFORE ANY CONDITIONAL RETURNS
   const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
   const [searchQuery, setSearchQuery] = useState("");
   const [editingMember, setEditingMember] = useState<any | null>(null);
@@ -98,7 +97,7 @@ export function OrganizationPage() {
     if (org?.id) {
       queryClient.invalidateQueries(["organization", org.id] as any);
     }
-    refetch();
+    // refetch();
   };
 
   // NOW CONDITIONAL RETURNS - AFTER ALL HOOKS

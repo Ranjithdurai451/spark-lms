@@ -289,6 +289,36 @@ export const updateLeaveStatus = async (req: Request, res: Response) => {
       });
     }
 
+    // Check balance before approval
+    if (status === "APPROVED") {
+      const policy = await prisma.leavePolicy.findFirst({
+        where: {
+          name: leave.type,
+          organizationId: leave.organizationId,
+          active: true,
+        },
+      });
+
+      if (!policy) {
+        return res.status(404).json({ message: "Leave policy not found." });
+      }
+
+      const balance = await prisma.leaveBalance.findFirst({
+        where: {
+          employeeId: leave.employeeId,
+          leavePolicyId: policy.id,
+        },
+      });
+
+      if (!balance || balance.remainingDays < leave.days) {
+        return res.status(400).json({
+          message: `Employee has insufficient balance. Available: ${
+            balance?.remainingDays || 0
+          } days, Required: ${leave.days} days.`,
+        });
+      }
+    }
+
     // Update leave and balance in transaction
     const result = await prisma.$transaction(async (tx) => {
       const updatedLeave = await tx.leave.update({
@@ -308,21 +338,23 @@ export const updateLeaveStatus = async (req: Request, res: Response) => {
       });
 
       // Handle balance based on status
-      const balance = await tx.leaveBalance.findFirst({
-        where: {
-          employeeId: leave.employeeId,
-          leavePolicy: { name: leave.type },
-        },
-      });
-
-      if (balance && status === "APPROVED") {
-        await tx.leaveBalance.update({
-          where: { id: balance.id },
-          data: {
-            usedDays: { increment: leave.days },
-            remainingDays: { decrement: leave.days },
+      if (status === "APPROVED") {
+        const balance = await tx.leaveBalance.findFirst({
+          where: {
+            employeeId: leave.employeeId,
+            leavePolicy: { name: leave.type },
           },
         });
+
+        if (balance) {
+          await tx.leaveBalance.update({
+            where: { id: balance.id },
+            data: {
+              usedDays: { increment: leave.days },
+              remainingDays: { decrement: leave.days },
+            },
+          });
+        }
       }
 
       return updatedLeave;
