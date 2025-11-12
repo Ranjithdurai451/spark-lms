@@ -4,7 +4,6 @@ import { prisma } from "../db";
 export async function main() {
   console.log("🌱 Seeding database...");
 
-  // 1️⃣ Create organization
   const organization = await prisma.organization.create({
     data: {
       organizationName: "Lumel",
@@ -14,7 +13,6 @@ export async function main() {
     },
   });
 
-  // 2️⃣ Create Admin user
   const adminPassword = await bcrypt.hash("Admin@123", 10);
   const admin = await prisma.user.create({
     data: {
@@ -26,7 +24,6 @@ export async function main() {
     },
   });
 
-  // 3️⃣ Create HR & Managers
   const hrPassword = await bcrypt.hash("Hr@123", 10);
   const hr1 = await prisma.user.create({
     data: {
@@ -51,7 +48,6 @@ export async function main() {
     },
   });
 
-  // 4️⃣ Create Employees (reports to HR or Manager)
   const employeePassword = await bcrypt.hash("Employee@123", 10);
   const employees = await prisma.user.createMany({
     data: [
@@ -98,7 +94,6 @@ export async function main() {
     ],
   });
 
-  console.log("✅ Seed completed!");
   //   console.log({
   //     organization,
   //     admin,

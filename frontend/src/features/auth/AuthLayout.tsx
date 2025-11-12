@@ -4,9 +4,9 @@ import ThemeToggle from "../root/ThemeToggle";
 const Layout = () => {
   return (
     <div className="w-dvw h-dvh flex justify-center items-center relative flex-col">
-      <div className="w-full absolute top-0 p-5 flex justify-end ">
+      {/* <div className="w-full absolute top-0 p-5 flex justify-end ">
         <ThemeToggle />
-      </div>
+      </div> */}
       <Outlet></Outlet>
 
       {/*  Diagonal Cross Top Left Fade Grid Background */}
@@ -14,8 +14,8 @@ const Layout = () => {
         className="absolute text-primary inset-0 pointer-events-none"
         style={{
           backgroundImage: `
-            linear-gradient(45deg, transparent 49%, var(--secondary) 49%, var(--secondary) 51%, transparent 51%),
-            linear-gradient(-45deg, transparent 49%, var(--secondary) 49%, var(--secondary) 51%, transparent 51%)
+            linear-gradient(45deg, transparent 49%, var(--muted) 49%, var(--muted) 51%, transparent 51%),
+            linear-gradient(-45deg, transparent 49%, var(--muted) 49%, var(--muted) 51%, transparent 51%)
           `,
           backgroundSize: "40px 40px",
           WebkitMaskImage:

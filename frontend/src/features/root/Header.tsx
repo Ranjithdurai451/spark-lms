@@ -41,7 +41,7 @@ const Header = ({ onMenuClick }: HeaderProps) => {
 
         {/* Right Section */}
         <div className="flex items-center gap-2 sm:gap-3">
-          <ThemeToggle />
+          {/* <ThemeToggle /> */}
           <ProfileDropdown />
         </div>
       </div>

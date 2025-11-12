@@ -54,7 +54,7 @@ export const sendEmailVerificationOtp = async (
       data: { otpToken },
     });
   } catch (err) {
-    console.error("❌ sendEmailVerificationOtp error:", err);
+    console.error(" sendEmailVerificationOtp error:", err);
     res.status(500).json({ message: "Failed to send OTP." });
   }
 };
@@ -79,7 +79,7 @@ export const verifyEmail = async (
 
     res.status(200).json({ message: "Email verified.", data: { email } });
   } catch (err) {
-    console.error("❌ verifyEmail error:", err);
+    console.error(" verifyEmail error:", err);
     res.status(500).json({ message: "Verification failed." });
   }
 };
@@ -181,7 +181,7 @@ export const registerAdmin = async (
       },
     });
   } catch (err) {
-    console.error("❌ registerAdmin error:", err);
+    console.error(" registerAdmin error:", err);
     res.status(500).json({ message: "Failed to register admin." });
   }
 };
@@ -246,7 +246,7 @@ export const acceptInvite = async (
       },
     });
   } catch (err) {
-    console.error("❌ acceptInvite error:", err);
+    console.error(" acceptInvite error:", err);
     res.status(400).json({
       message: "Invalid or expired invitation token.",
     });
@@ -303,7 +303,7 @@ export const login = async (req: Request, res: Response) => {
       },
     });
   } catch (err) {
-    console.error("❌ login error:", err);
+    console.error(" login error:", err);
     res.status(500).json({ message: "Login failed. Try again later." });
   }
 };
@@ -381,7 +381,7 @@ export const forgotPassword = async (req: Request, res: Response) => {
         "A password reset link has been sent to your email address. Please check your inbox.",
     });
   } catch (error) {
-    console.error("❌ forgotPassword error:", error);
+    console.error(" forgotPassword error:", error);
     return res.status(500).json({
       message:
         "An unexpected error occurred while processing your password reset request. Please try again later.",
@@ -431,7 +431,7 @@ export const resetPassword = async (req: Request, res: Response) => {
         "Your password has been successfully reset. You can now log in using your new password.",
     });
   } catch (err) {
-    console.error("❌ resetPassword error:", err);
+    console.error("resetPassword error:", err);
     return res.status(400).json({
       message:
         "Invalid or expired password reset link. Please request a new one.",

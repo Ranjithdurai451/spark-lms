@@ -15,7 +15,6 @@ import {
   UserCircle,
   LayoutGrid,
   Table as TableIcon,
-  Loader2,
   Search,
   X,
   TrendingUp,
@@ -52,7 +51,9 @@ export function OrganizationPage() {
   const org = data?.data;
   const members = org?.users || [];
 
-  // useMemo MUST be called before any conditional returns
+  // Check if current user can edit/delete
+  const canManageMembers = ["ADMIN", "HR"].includes(user?.role || "");
+
   const filteredMembers = useMemo(() => {
     if (!searchQuery.trim()) return members;
 
@@ -77,7 +78,6 @@ export function OrganizationPage() {
     [members]
   );
 
-  // Role color helper function
   const getRoleColor = (role: string) => {
     switch (role) {
       case "ADMIN":
@@ -97,19 +97,31 @@ export function OrganizationPage() {
     if (org?.id) {
       queryClient.invalidateQueries(["organization", org.id] as any);
     }
-    // refetch();
   };
 
-  // NOW CONDITIONAL RETURNS - AFTER ALL HOOKS
+  // ✅ Helper: Check if member is current user
+  const isCurrentUser = (memberId: string) => memberId === user?.id;
+
+  // ✅ Helper: Check if user can perform action on member
+  const canPerformAction = (member: any) => {
+    // Can't delete/edit yourself
+    if (isCurrentUser(member.id)) return false;
+    // Only ADMIN/HR can manage members
+    return canManageMembers;
+  };
+
   if (isLoading) return <OrganizationSkeleton />;
 
   if (isError)
     return (
       <div className="flex flex-col items-center justify-center h-[80vh] space-y-4 text-center">
+        <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center mb-2">
+          <X className="w-8 h-8 text-destructive" />
+        </div>
         <p className="text-destructive font-semibold text-lg">
           {error.response?.data?.message || "Failed to load organization."}
         </p>
-        <Button onClick={() => refetch()} className="gap-2">
+        <Button onClick={() => refetch()} variant="outline" className="gap-2">
           <RefreshCcw className="w-4 h-4" /> Retry
         </Button>
       </div>
@@ -118,10 +130,15 @@ export function OrganizationPage() {
   if (!org)
     return (
       <div className="flex flex-col items-center justify-center h-[80vh] space-y-4 text-center">
+        <div className="w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center mb-2">
+          <Users2 className="w-8 h-8 text-muted-foreground" />
+        </div>
         <p className="text-muted-foreground text-lg">
           No organization data available.
         </p>
-        <Button onClick={() => refetch()}>Reload</Button>
+        <Button onClick={() => refetch()} variant="outline">
+          Reload
+        </Button>
       </div>
     );
 
@@ -149,13 +166,15 @@ export function OrganizationPage() {
               )}
             </div>
           </div>
-          <Button
-            size="default"
-            className="gap-2 shadow-lg hover:shadow-xl transition-all"
-            onClick={() => setIsInviteOpen(true)}
-          >
-            <Plus className="w-4 h-4" /> Invite Member
-          </Button>
+          {canManageMembers && (
+            <Button
+              size="default"
+              className="gap-2 shadow-lg hover:shadow-xl transition-all"
+              onClick={() => setIsInviteOpen(true)}
+            >
+              <Plus className="w-4 h-4" /> Invite Member
+            </Button>
+          )}
         </div>
 
         {/* Stats Cards */}
@@ -325,7 +344,7 @@ export function OrganizationPage() {
                     <X className="w-4 h-4" />
                     Clear Search
                   </Button>
-                ) : (
+                ) : canManageMembers ? (
                   <Button
                     variant="outline"
                     onClick={() => setIsInviteOpen(true)}
@@ -334,98 +353,138 @@ export function OrganizationPage() {
                     <Plus className="w-4 h-4" />
                     Invite Member
                   </Button>
-                )}
+                ) : null}
               </div>
             ) : viewMode === "grid" ? (
-              /* Grid View */
+              /* ✅ Grid View - Updated */
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-6">
-                {filteredMembers.map((member) => (
-                  <Card
-                    key={member.id}
-                    className="group hover:shadow-xl transition-all duration-300 border-none shadow-md overflow-hidden"
-                  >
-                    <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-primary to-primary/50" />
-                    <CardContent className="p-4 pl-5">
-                      <div className="space-y-3">
-                        {/* Header */}
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex items-center gap-3 min-w-0">
-                            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                              <span className="text-sm font-bold text-primary">
-                                {member.username.charAt(0).toUpperCase()}
-                              </span>
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <p className="text-sm font-semibold truncate">
-                                {member.username}
-                              </p>
-                              <Badge
+                {filteredMembers.map((member) => {
+                  const isCurrent = isCurrentUser(member.id);
+                  const canManage = canPerformAction(member);
+
+                  return (
+                    <Card
+                      key={member.id}
+                      className={cn(
+                        "group hover:shadow-xl transition-all duration-300 border-none shadow-md overflow-hidden",
+                        isCurrent && "ring-2 ring-primary/20"
+                      )}
+                    >
+                      <div
+                        className={cn(
+                          "absolute top-0 left-0 w-1 h-full",
+                          isCurrent
+                            ? "bg-gradient-to-b from-primary to-primary/50"
+                            : "bg-gradient-to-b from-muted to-muted/50"
+                        )}
+                      />
+                      <CardContent className="p-4 pl-5">
+                        <div className="space-y-3">
+                          {/* Header */}
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex items-center gap-3 min-w-0">
+                              <div
                                 className={cn(
-                                  "mt-1 text-[10px] h-5 font-medium border",
-                                  getRoleColor(member.role)
+                                  "w-10 h-10 rounded-full flex items-center justify-center shrink-0",
+                                  isCurrent
+                                    ? "bg-primary text-primary-foreground"
+                                    : "bg-primary/10"
                                 )}
                               >
-                                {member.role}
-                              </Badge>
+                                <span
+                                  className={cn(
+                                    "text-sm font-bold",
+                                    isCurrent ? "text-white" : "text-primary"
+                                  )}
+                                >
+                                  {member.username.charAt(0).toUpperCase()}
+                                </span>
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-2">
+                                  <p className="text-sm font-semibold truncate">
+                                    {member.username}
+                                  </p>
+                                  {isCurrent && (
+                                    <Badge className="bg-primary/10 text-primary border-primary/20 text-[10px] h-5">
+                                      You
+                                    </Badge>
+                                  )}
+                                </div>
+                                <Badge
+                                  className={cn(
+                                    "mt-1 text-[10px] h-5 font-medium border",
+                                    getRoleColor(member.role)
+                                  )}
+                                >
+                                  {member.role}
+                                </Badge>
+                              </div>
                             </div>
+
+                            {/* ✅ Actions - Only show if user can manage */}
+                            {canManage && (
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 shrink-0"
+                                  >
+                                    <MoreHorizontal className="w-4 h-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent
+                                  align="end"
+                                  className="w-40"
+                                >
+                                  <DropdownMenuItem
+                                    onClick={() => setEditingMember(member)}
+                                  >
+                                    <Edit2 className="w-4 h-4 mr-2" />
+                                    Edit
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem
+                                    onClick={() => setDeletingId(member.id)}
+                                    className="text-destructive focus:text-destructive"
+                                  >
+                                    <Trash2 className="w-4 h-4 mr-2" />
+                                    Delete
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            )}
                           </div>
 
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 shrink-0"
-                              >
-                                <MoreHorizontal className="w-4 h-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-40">
-                              <DropdownMenuItem
-                                onClick={() => setEditingMember(member)}
-                              >
-                                <Edit2 className="w-4 h-4 mr-2" />
-                                Edit
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem
-                                onClick={() => setDeletingId(member.id)}
-                                className="text-destructive focus:text-destructive"
-                              >
-                                <Trash2 className="w-4 h-4 mr-2" />
-                                Delete
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </div>
-
-                        {/* Email */}
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <Mail className="w-3.5 h-3.5 shrink-0" />
-                          <span className="truncate">{member.email}</span>
-                        </div>
-
-                        {/* Manager */}
-                        {member.manager && (
-                          <div className="flex items-center gap-2 pt-2 border-t">
-                            <UserCircle className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                            <div className="min-w-0 flex-1">
-                              <p className="text-[10px] text-muted-foreground">
-                                Reports to
-                              </p>
-                              <p className="text-xs font-medium truncate">
-                                {member.manager.username}
-                              </p>
-                            </div>
+                          {/* Email */}
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <Mail className="w-3.5 h-3.5 shrink-0" />
+                            <span className="truncate">{member.email}</span>
                           </div>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+
+                          {/* Manager */}
+                          {member.manager && (
+                            <div className="flex items-center gap-2 pt-2 border-t">
+                              <UserCircle className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                              <div className="min-w-0 flex-1">
+                                <p className="text-[10px] text-muted-foreground">
+                                  Reports to
+                                </p>
+                                <p className="text-xs font-medium truncate">
+                                  {member.manager.username}
+                                </p>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
               </div>
             ) : (
-              /* Table View */
+              /* ✅ Table View - Updated */
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead className="bg-muted/50 border-b">
@@ -442,79 +501,119 @@ export function OrganizationPage() {
                       <th className="p-4 text-left text-xs font-semibold text-muted-foreground">
                         MANAGER
                       </th>
-                      <th className="p-4 text-right text-xs font-semibold text-muted-foreground">
-                        ACTIONS
-                      </th>
+                      {canManageMembers && (
+                        <th className="p-4 text-right text-xs font-semibold text-muted-foreground">
+                          ACTIONS
+                        </th>
+                      )}
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredMembers.map((member) => (
-                      <tr
-                        key={member.id}
-                        className="border-b hover:bg-muted/30 transition-colors group"
-                      >
-                        <td className="p-4">
-                          <div className="flex items-center gap-3">
-                            <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                              <span className="text-xs font-bold text-primary">
-                                {member.username.charAt(0).toUpperCase()}
-                              </span>
+                    {filteredMembers.map((member) => {
+                      const isCurrent = isCurrentUser(member.id);
+                      const canManage = canPerformAction(member);
+
+                      return (
+                        <tr
+                          key={member.id}
+                          className={cn(
+                            "border-b hover:bg-muted/30 transition-colors group",
+                            isCurrent && "bg-primary/5"
+                          )}
+                        >
+                          <td className="p-4">
+                            <div className="flex items-center gap-3">
+                              <div
+                                className={cn(
+                                  "w-9 h-9 rounded-full flex items-center justify-center shrink-0",
+                                  isCurrent
+                                    ? "bg-primary text-primary-foreground"
+                                    : "bg-primary/10"
+                                )}
+                              >
+                                <span
+                                  className={cn(
+                                    "text-xs font-bold",
+                                    isCurrent ? "text-white" : "text-primary"
+                                  )}
+                                >
+                                  {member.username.charAt(0).toUpperCase()}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <p className="text-sm font-medium">
+                                  {member.username}
+                                </p>
+                                {isCurrent && (
+                                  <Badge className="bg-primary/10 text-primary border-primary/20 text-[10px] h-5">
+                                    You
+                                  </Badge>
+                                )}
+                              </div>
                             </div>
-                            <p className="text-sm font-medium">
-                              {member.username}
-                            </p>
-                          </div>
-                        </td>
-                        <td className="p-4">
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <Mail className="w-3.5 h-3.5" />
-                            {member.email}
-                          </div>
-                        </td>
-                        <td className="p-4">
-                          <Badge
-                            className={cn(
-                              "text-xs font-medium border",
-                              getRoleColor(member.role)
-                            )}
-                          >
-                            {member.role}
-                          </Badge>
-                        </td>
-                        <td className="p-4 text-sm text-muted-foreground">
-                          {member.manager?.username || "-"}
-                        </td>
-                        <td className="p-4 text-right">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8"
-                              >
-                                <MoreHorizontal className="w-4 h-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-40">
-                              <DropdownMenuItem
-                                onClick={() => setEditingMember(member)}
-                              >
-                                <Edit2 className="w-4 h-4 mr-2" />
-                                Edit
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem
-                                onClick={() => setDeletingId(member.id)}
-                                className="text-destructive focus:text-destructive"
-                              >
-                                <Trash2 className="w-4 h-4 mr-2" />
-                                Delete
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </td>
-                      </tr>
-                    ))}
+                          </td>
+                          <td className="p-4">
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                              <Mail className="w-3.5 h-3.5" />
+                              {member.email}
+                            </div>
+                          </td>
+                          <td className="p-4">
+                            <Badge
+                              className={cn(
+                                "text-xs font-medium border",
+                                getRoleColor(member.role)
+                              )}
+                            >
+                              {member.role}
+                            </Badge>
+                          </td>
+                          <td className="p-4 text-sm text-muted-foreground">
+                            {member.manager?.username || "-"}
+                          </td>
+                          {canManageMembers && (
+                            <td className="p-4 text-right">
+                              {canManage ? (
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-8 w-8"
+                                    >
+                                      <MoreHorizontal className="w-4 h-4" />
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent
+                                    align="end"
+                                    className="w-40"
+                                  >
+                                    <DropdownMenuItem
+                                      onClick={() => setEditingMember(member)}
+                                    >
+                                      <Edit2 className="w-4 h-4 mr-2" />
+                                      Edit
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem
+                                      onClick={() => setDeletingId(member.id)}
+                                      className="text-destructive focus:text-destructive"
+                                    >
+                                      <Trash2 className="w-4 h-4 mr-2" />
+                                      Delete
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              ) : (
+                                <span className="text-xs text-muted-foreground">
+                                  -
+                                </span>
+                              )}
+                            </td>
+                          )}
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -523,11 +622,13 @@ export function OrganizationPage() {
         </Card>
 
         {/* Dialogs */}
-        <InviteDialog
-          open={isInviteOpen}
-          onOpenChange={setIsInviteOpen}
-          members={members}
-        />
+        {canManageMembers && (
+          <InviteDialog
+            open={isInviteOpen}
+            onOpenChange={setIsInviteOpen}
+            members={members}
+          />
+        )}
 
         {editingMember && (
           <EditMemberDialog

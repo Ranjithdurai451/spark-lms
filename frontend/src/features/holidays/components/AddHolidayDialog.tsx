@@ -155,18 +155,18 @@ export function AddHolidayDialog({ open, onOpenChange, onSuccess }: any) {
                   captionLayout="dropdown"
                   selected={form.date}
                   onSelect={(date) => {
-                    if (
-                      date &&
-                      isBefore(startOfDay(date), startOfDay(new Date()))
-                    ) {
-                      return;
-                    }
+                    // if (
+                    //   date &&
+                    //   isBefore(startOfDay(date), startOfDay(new Date()))
+                    // ) {
+                    //   return;
+                    // }
                     setForm({ ...form, date: date ?? undefined });
                     setDatePickerOpen(false);
                   }}
-                  disabled={(date) =>
-                    isBefore(startOfDay(date), startOfDay(new Date()))
-                  }
+                  // disabled={(date) =>
+                  //   isBefore(startOfDay(date), startOfDay(new Date()))
+                  // }
                   initialFocus
                 />
               </PopoverContent>

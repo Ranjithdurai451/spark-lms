@@ -36,7 +36,7 @@ export const getMyLeaveBalances = async (req: Request, res: Response) => {
       data: balances,
     });
   } catch (error) {
-    console.error("❌ getMyLeaveBalances error:", error);
+    console.error(" getMyLeaveBalances error:", error);
     return res.status(500).json({
       message: "Failed to fetch user leave balances.",
     });

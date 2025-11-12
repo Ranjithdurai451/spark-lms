@@ -93,7 +93,7 @@ export const getUserProfile = async (req: Request, res: Response) => {
       },
     });
   } catch (error) {
-    console.error("❌ getUserProfile error:", error);
+    console.error(" getUserProfile error:", error);
     res.status(500).json({ message: "Failed to fetch user profile." });
   }
 };
@@ -151,7 +151,7 @@ export const updateProfile = async (req: Request, res: Response) => {
       data: updatedUser,
     });
   } catch (error) {
-    console.error("❌ updateProfile error:", error);
+    console.error(" updateProfile error:", error);
     res.status(500).json({ message: "Failed to update profile." });
   }
 };

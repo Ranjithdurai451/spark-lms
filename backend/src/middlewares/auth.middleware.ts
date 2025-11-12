@@ -54,7 +54,7 @@ export const authenticate = async (
 
     next();
   } catch (error) {
-    console.error("❌ authenticate error:", error);
+    console.error(" authenticate error:", error);
     res.status(401).json({ message: "Invalid or expired authentication." });
   }
 };

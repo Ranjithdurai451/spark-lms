@@ -20,7 +20,7 @@ export const getHolidays = async (req: Request, res: Response) => {
       data: holidays,
     });
   } catch (error) {
-    console.error("❌ getHolidays error:", error);
+    console.error(" getHolidays error:", error);
     res.status(500).json({ message: "Failed to fetch holidays." });
   }
 };
@@ -54,7 +54,7 @@ export const createHoliday = async (req: Request, res: Response) => {
       data: holiday,
     });
   } catch (error) {
-    console.error("❌ createHoliday error:", error);
+    console.error(" createHoliday error:", error);
     res.status(500).json({ message: "Failed to create holiday." });
   }
 };
@@ -88,7 +88,7 @@ export const updateHoliday = async (req: Request, res: Response) => {
       data: updated,
     });
   } catch (error) {
-    console.error("❌ updateHoliday error:", error);
+    console.error(" updateHoliday error:", error);
     res.status(500).json({ message: "Failed to update holiday." });
   }
 };
@@ -109,7 +109,7 @@ export const deleteHoliday = async (req: Request, res: Response) => {
 
     res.status(200).json({ message: "Holiday deleted successfully." });
   } catch (error) {
-    console.error("❌ deleteHoliday error:", error);
+    console.error(" deleteHoliday error:", error);
     res.status(500).json({ message: "Failed to delete holiday." });
   }
 };

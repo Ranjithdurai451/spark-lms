@@ -71,7 +71,7 @@ export async function createBalancesForNewUser(
   });
 
   console.log(
-    `✅ Created ${balancesCreated.count} leave balances for user ${userId}`
+    `Created ${balancesCreated.count} leave balances for user ${userId}`
   );
   return balancesCreated;
 }
@@ -109,7 +109,7 @@ export async function resetAnnualBalances(organizationId: string) {
 
   const results = await Promise.all(updates);
   console.log(
-    `✅ Reset ${results.length} leave balances for organization ${organizationId}`
+    ` Reset ${results.length} leave balances for organization ${organizationId}`
   );
   return results;
 }

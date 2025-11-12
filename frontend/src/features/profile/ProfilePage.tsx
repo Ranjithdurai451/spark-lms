@@ -157,7 +157,7 @@ export function ProfilePage() {
         </Card>
 
         {/* Leave Balances - Show only for own profile */}
-        {/* {isOwnProfile && balances.length > 0 && (
+        {isOwnProfile && balances.length > 0 && (
           <div className="space-y-3">
             <h2 className="text-lg font-semibold">Leave Balances</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -223,7 +223,7 @@ export function ProfilePage() {
               ))}
             </div>
           </div>
-        )} */}
+        )}
 
         {/* Stats Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

@@ -33,7 +33,7 @@ export const getOrganizationById = async (req: Request, res: Response) => {
       data: organization,
     });
   } catch (error) {
-    console.error("❌ getOrganizationById error:", error);
+    console.error("getOrganizationById error:", error);
     res.status(500).json({ message: "Failed to fetch organization." });
   }
 };
@@ -93,7 +93,7 @@ export const inviteMember = async (req: Request, res: Response) => {
       },
     });
   } catch (error) {
-    console.error("❌ inviteMember error:", error);
+    console.error(" inviteMember error:", error);
     res.status(500).json({ message: "Failed to send invite." });
   }
 };
@@ -156,7 +156,7 @@ export const updateUser = async (req: Request, res: Response) => {
       data: updatedUser,
     });
   } catch (error) {
-    console.error("❌ updateUser error:", error);
+    console.error(" updateUser error:", error);
     res.status(500).json({ message: "Failed to update user." });
   }
 };
@@ -184,7 +184,7 @@ export const deleteUser = async (req: Request, res: Response) => {
 
     res.status(200).json({ message: "Member deleted successfully." });
   } catch (error) {
-    console.error("❌ deleteUser error:", error);
+    console.error(" deleteUser error:", error);
     res.status(500).json({ message: "Failed to delete user." });
   }
 };

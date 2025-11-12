@@ -86,7 +86,8 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
       href: "/in/organization",
       label: "Organization",
       icon: Building2,
-      show: isAdminOrHR, // Admin and HR only
+      // show: isAdminOrHR, // Admin and HR only
+      show: true,
     },
   ];
 
@@ -100,18 +101,8 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
     // Clear user from Redux store
     dispatch.auth.clearUser();
 
-    // Clear localStorage
-    localStorage.removeItem("user");
-    localStorage.removeItem("auth-token");
-
-    // Clear any cookies if needed
-    document.cookie =
-      "auth-token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
-
-    // Close sidebar on mobile
     onClose();
 
-    // Navigate to login
     navigate("/login", { replace: true });
   };
 

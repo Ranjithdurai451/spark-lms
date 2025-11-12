@@ -35,7 +35,7 @@ export const getAllLeaves = async (req: Request, res: Response) => {
       data: leaves,
     });
   } catch (error) {
-    console.error("❌ getAllLeaves error:", error);
+    console.error(" getAllLeaves error:", error);
     res.status(500).json({ message: "Failed to fetch leaves." });
   }
 };
@@ -61,7 +61,7 @@ export const getMyLeaves = async (req: Request, res: Response) => {
       data: leaves,
     });
   } catch (error) {
-    console.error("❌ getMyLeaves error:", error);
+    console.error(" getMyLeaves error:", error);
     res.status(500).json({ message: "Failed to fetch your leaves." });
   }
 };
@@ -193,7 +193,7 @@ export const createLeave = async (req: Request, res: Response) => {
       data: leave,
     });
   } catch (error) {
-    console.error("❌ createLeave error:", error);
+    console.error(" createLeave error:", error);
     return res.status(500).json({ message: "Failed to create leave." });
   }
 };
@@ -238,7 +238,7 @@ export const cancelLeave = async (req: Request, res: Response) => {
       data: updated,
     });
   } catch (error) {
-    console.error("❌ cancelLeave error:", error);
+    console.error(" cancelLeave error:", error);
     res.status(500).json({ message: "Failed to cancel leave." });
   }
 };
@@ -365,7 +365,7 @@ export const updateLeaveStatus = async (req: Request, res: Response) => {
       data: result,
     });
   } catch (error) {
-    console.error("❌ updateLeaveStatus error:", error);
+    console.error(" updateLeaveStatus error:", error);
     res.status(500).json({ message: "Failed to update leave status." });
   }
 };
@@ -417,7 +417,7 @@ export const deleteLeave = async (req: Request, res: Response) => {
       message: "Leave deleted successfully.",
     });
   } catch (error) {
-    console.error("❌ deleteLeave error:", error);
+    console.error("deleteLeave error:", error);
     res.status(500).json({ message: "Failed to delete leave." });
   }
 };

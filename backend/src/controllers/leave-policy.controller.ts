@@ -19,7 +19,7 @@ export const getLeavePolicies = async (req: Request, res: Response) => {
       data: policies,
     });
   } catch (err) {
-    console.error("❌ getLeavePolicies error:", err);
+    console.error(" getLeavePolicies error:", err);
     res.status(500).json({ message: "Failed to fetch policies." });
   }
 };

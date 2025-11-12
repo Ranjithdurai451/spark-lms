@@ -35,7 +35,6 @@ import {
   CheckCircle2,
   UserPlus,
   Loader2,
-  Info,
 } from "lucide-react";
 import {
   format,
@@ -98,12 +97,10 @@ export function RequestLeaveSheet({
 
   const remaining = selectedBalance?.remainingDays ?? 0;
 
-  // ✅ FIXED: Calculate business days excluding weekends AND holidays
   const calculateBusinessDays = (start: Date, end: Date): number => {
     let count = 0;
     const current = new Date(start);
 
-    // Create a Set of holiday dates for O(1) lookup
     const holidayDates = new Set(
       holidays.map((h) => {
         const d = new Date(h.date);
@@ -121,7 +118,6 @@ export function RequestLeaveSheet({
 
       const isHoliday = holidayDates.has(dateString);
 
-      // Only count if it's not a weekend AND not a holiday
       if (!isWeekend(current) && !isHoliday) {
         count++;
       }
@@ -151,19 +147,16 @@ export function RequestLeaveSheet({
     );
   }, [orgUsers, searchQuery, user?.id]);
 
-  // ✅ FIXED: Better validation with proper date comparison
   useEffect(() => {
     const errors: string[] = [];
 
     if (form.type && form.startDate && form.endDate && days >= 0) {
-      // Check balance
       if (days > remaining) {
         errors.push(
           `Insufficient balance. You have ${remaining} day(s) left but selected ${days} day(s).`
         );
       }
 
-      // Check minimum notice
       if (selectedBalance?.leavePolicy?.minNotice && form.startDate) {
         const today = startOfDay(new Date());
         const leaveStartDate = startOfDay(form.startDate);
@@ -186,7 +179,6 @@ export function RequestLeaveSheet({
         }
       }
 
-      // Check if no business days selected
       if (days === 0 && form.startDate && form.endDate) {
         errors.push(
           "No business days in selected date range (weekends/holidays only)."
@@ -204,7 +196,6 @@ export function RequestLeaveSheet({
     selectedBalance,
   ]);
 
-  // ✅ FIXED: Better date validation
   const handleSubmit = () => {
     const errors: string[] = [];
 
@@ -282,7 +273,6 @@ export function RequestLeaveSheet({
     });
   };
 
-  // ✅ FIXED: Check if date is a holiday
   const isHolidayDate = (date: Date): boolean => {
     return holidays.some((h) => {
       const holidayDate = new Date(h.date);
@@ -299,7 +289,6 @@ export function RequestLeaveSheet({
         className="w-full sm:max-w-[460px] p-0 flex flex-col h-full"
         onInteractOutside={(e) => e.preventDefault()}
       >
-        {/* Minimal Header */}
         <SheetHeader className="px-5 py-4 border-b shrink-0">
           <SheetTitle className="text-lg font-semibold">
             Request Leave
@@ -309,8 +298,7 @@ export function RequestLeaveSheet({
           </p>
         </SheetHeader>
 
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto scrollbar-thin">
           {isLoading ? (
             <div className="py-16 text-center">
               <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2 text-primary" />
@@ -318,7 +306,7 @@ export function RequestLeaveSheet({
             </div>
           ) : (
             <div className="space-y-4 px-5 py-4">
-              {/* Date Selection - Compact */}
+              {/* Date Selection */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <Label className="text-xs font-medium text-muted-foreground">
@@ -369,16 +357,10 @@ export function RequestLeaveSheet({
                           const today = startOfDay(new Date());
                           const checkDate = startOfDay(date);
 
-                          // Disable weekends
                           if (isWeekend(date)) return true;
-
-                          // Disable past dates
                           if (isBefore(checkDate, today)) return true;
-
-                          // Disable holidays
                           if (isHolidayDate(date)) return true;
 
-                          // Check minimum notice
                           if (
                             form.type &&
                             selectedBalance?.leavePolicy?.minNotice
@@ -441,7 +423,7 @@ export function RequestLeaveSheet({
                 </div>
               </div>
 
-              {/* Leave Type - Fixed Width */}
+              {/* Leave Type */}
               <div className="space-y-2">
                 <Label className="text-xs font-medium text-muted-foreground">
                   Leave Type
@@ -481,7 +463,7 @@ export function RequestLeaveSheet({
                 </Select>
               </div>
 
-              {/* Validation Errors - Compact */}
+              {/* Validation Errors */}
               {validationErrors.length > 0 && (
                 <Alert
                   variant="destructive"
@@ -520,7 +502,7 @@ export function RequestLeaveSheet({
                 </Alert>
               )}
 
-              {/* Reason - Compact */}
+              {/* Reason */}
               <div className="space-y-2">
                 <Label className="text-xs font-medium text-muted-foreground">
                   Reason (Optional)
@@ -533,13 +515,165 @@ export function RequestLeaveSheet({
                 />
               </div>
 
-              {/* Rest of your component stays the same... */}
-              {/* Notify Users section */}
+              {/* ✅ Notify Users Section */}
+              <div className="space-y-2">
+                <Label className="text-xs font-medium text-muted-foreground">
+                  Notify (Optional)
+                </Label>
+                <Popover open={notifyOpen} onOpenChange={setNotifyOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full h-9 justify-start font-normal"
+                    >
+                      {selectedUsers.length > 0 ? (
+                        <>
+                          <UserPlus className="h-3.5 w-3.5 mr-2" />
+                          <span className="text-xs">
+                            {selectedUsers.length} selected
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <Search className="h-3.5 w-3.5 mr-2 text-muted-foreground" />
+                          <span className="text-xs text-muted-foreground">
+                            Search employees
+                          </span>
+                        </>
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent
+                    className="w-[--radix-popover-trigger-width] p-0"
+                    align="start"
+                  >
+                    <div className="flex flex-col max-h-[280px]">
+                      <div className="p-2 border-b">
+                        <div className="relative">
+                          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                          <Input
+                            placeholder="Search..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="h-8 pl-8 text-xs"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="flex-1 overflow-y-auto scrollbar-thin p-1.5">
+                        {filteredUsers.length === 0 ? (
+                          <p className="text-xs text-center py-6 text-muted-foreground">
+                            No employees found
+                          </p>
+                        ) : (
+                          <div className="space-y-0.5">
+                            {filteredUsers.map((member) => {
+                              const isSelected = form.notifyUsers.includes(
+                                member.id
+                              );
+                              return (
+                                <button
+                                  key={member.id}
+                                  onClick={() => handleToggleUser(member.id)}
+                                  className={cn(
+                                    "w-full flex items-center gap-2 p-1.5 rounded transition-colors text-left",
+                                    isSelected
+                                      ? "bg-primary/10"
+                                      : "hover:bg-muted/50"
+                                  )}
+                                >
+                                  <div
+                                    className={cn(
+                                      "w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0",
+                                      isSelected
+                                        ? "bg-primary text-primary-foreground"
+                                        : "bg-muted"
+                                    )}
+                                  >
+                                    {member.username.charAt(0).toUpperCase()}
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-xs font-medium truncate">
+                                      {member.username}
+                                    </p>
+                                    <p className="text-[10px] text-muted-foreground truncate">
+                                      {member.email}
+                                    </p>
+                                  </div>
+                                  <div className="flex items-center gap-1.5 shrink-0">
+                                    <Badge
+                                      variant="outline"
+                                      className="text-[9px] h-4 px-1"
+                                    >
+                                      {member.role}
+                                    </Badge>
+                                    {isSelected && (
+                                      <CheckCircle2 className="h-3.5 w-3.5 text-primary" />
+                                    )}
+                                  </div>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+
+                      {selectedUsers.length > 0 && (
+                        <>
+                          <Separator />
+                          <div className="p-2 flex items-center justify-between">
+                            <span className="text-[10px] text-muted-foreground">
+                              {selectedUsers.length} selected
+                            </span>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() =>
+                                setForm({ ...form, notifyUsers: [] })
+                              }
+                              className="h-6 text-[10px] px-2"
+                            >
+                              Clear
+                            </Button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </PopoverContent>
+                </Popover>
+
+                {selectedUsers.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 pt-1">
+                    {selectedUsers.map((member) => (
+                      <Badge
+                        key={member.id}
+                        variant="secondary"
+                        className="pl-0.5 pr-1.5 py-0.5 gap-1 h-6"
+                      >
+                        <div className="w-4 h-4 rounded-full bg-primary/10 flex items-center justify-center">
+                          <span className="text-[9px] font-bold text-primary">
+                            {member.username.charAt(0).toUpperCase()}
+                          </span>
+                        </div>
+                        <span className="text-[10px] max-w-[80px] truncate">
+                          {member.username}
+                        </span>
+                        <button
+                          onClick={() => handleToggleUser(member.id)}
+                          className="hover:bg-muted/80 rounded-full p-0.5"
+                        >
+                          <X className="h-2.5 w-2.5" />
+                        </button>
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>
 
-        {/* Minimal Footer */}
         <SheetFooter className="border-t px-5 py-3 shrink-0">
           <div className="flex gap-2 w-full">
             <Button
