@@ -7,24 +7,10 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Calendar,
-  CalendarDays,
-  Clock,
-  Info,
-  ChevronRight,
-} from "lucide-react";
+import { Calendar, CalendarDays, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
-import {
-  format,
-  isToday,
-  isFuture,
-  isPast,
-  differenceInDays,
-  getMonth,
-} from "date-fns";
+import { format, isToday, isFuture, isPast, differenceInDays } from "date-fns";
 
 interface ViewHolidaysDialogProps {
   open: boolean;

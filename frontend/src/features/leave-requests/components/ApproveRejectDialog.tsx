@@ -14,13 +14,13 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle, Loader2, CheckCircle, XCircle } from "lucide-react";
 import { useUpdateLeaveStatus } from "../useLeaveRequests";
 import { queryClient } from "@/features/root/Providers";
-import type { LeaveRequest } from "../leaveRequestsService";
 import { format } from "date-fns";
+import type { Leave } from "@/features/my-leaves/MyleavesService";
 
 interface ApproveRejectDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  leave: LeaveRequest;
+  leave: Leave;
   action: "APPROVED" | "REJECTED";
   onSuccess: () => void;
 }
@@ -85,7 +85,7 @@ export function ApproveRejectDialog({
           <AlertDialogDescription className="space-y-2">
             <p>
               Are you sure you want to {isApprove ? "approve" : "reject"}{" "}
-              <strong>{leave.employee.username}</strong>'s leave request?
+              <strong>{leave?.employee?.username}</strong>'s leave request?
             </p>
             <div className="mt-3 p-3 bg-muted/50 rounded-lg space-y-1 text-xs">
               <div className="flex justify-between">

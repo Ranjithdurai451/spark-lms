@@ -1,10 +1,7 @@
-// App.tsx
 import { createBrowserRouter, RouterProvider } from "react-router";
 import Layout from "@/features/auth/AuthLayout";
 import DefaultBanner from "@/features/root/DefaultBanner";
 import { RegisterPage } from "@/features/auth/register-admin/RegisterPage";
-import { useAppDispatch } from "./lib/hooks";
-import { useEffect } from "react";
 import PublicRoute from "./features/root/PublicRoute";
 import RootLayout from "./features/root/RootLayout";
 import { LoginPage } from "./features/auth/pages/LoginPage";
@@ -21,8 +18,6 @@ import ProtectedRoute from "./features/root/ProctectedRoute";
 import { ProfilePage } from "./features/profile/ProfilePage";
 
 function App() {
-  const dispatch = useAppDispatch();
-
   const router = createBrowserRouter([
     {
       path: "/",
@@ -134,18 +129,9 @@ function App() {
           path: "profile/:userId",
           element: <ProfilePage />,
         },
-        // {
-        //   path: "unauthorized",
-        //   element: <UnauthorizedPage />,
-        // },
       ],
     },
   ]);
-
-  useEffect(() => {
-    const user = localStorage.getItem("user");
-    if (user) dispatch.auth.setUser(JSON.parse(user));
-  }, []);
 
   return <RouterProvider router={router} />;
 }

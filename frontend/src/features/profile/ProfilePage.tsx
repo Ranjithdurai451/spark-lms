@@ -41,13 +41,13 @@ export function ProfilePage() {
   const getRoleColor = (role: string) => {
     switch (role) {
       case "ADMIN":
-        return "bg-yellow-50 text-yellow-700 border-yellow-200 dark:bg-yellow-950/30";
+        return "bg-destructive/10 text-destructive border-destructive/20";
       case "HR":
-        return "bg-green-50 text-green-700 border-green-200 dark:bg-green-950/30";
+        return "bg-primary/10 text-primary border-primary/20";
       case "MANAGER":
-        return "bg-red-50 text-red-700 border-red-200 dark:bg-red-950/30";
+        return "bg-accent text-accent-foreground border-accent";
       default:
-        return "bg-gray-50 text-gray-700 border-gray-200 dark:bg-gray-950/30";
+        return "bg-muted text-muted-foreground border-border";
     }
   };
 
@@ -156,7 +156,7 @@ export function ProfilePage() {
           </CardContent>
         </Card>
 
-        {/* Leave Balances - Show only for own profile */}
+        {/* Leave Balances */}
         {isOwnProfile && balances.length > 0 && (
           <div className="space-y-3">
             <h2 className="text-lg font-semibold">Leave Balances</h2>
@@ -225,21 +225,22 @@ export function ProfilePage() {
           </div>
         )}
 
-        {/* Stats Grid */}
+        {/* Stats Grid - SHADCN COLORS ONLY */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <Card className="border-none shadow-md hover:shadow-lg transition-shadow bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-950/30 dark:to-blue-900/20">
+          {/* Leave Days Taken - Primary */}
+          <Card className="border-none shadow-md hover:shadow-lg transition-shadow bg-gradient-to-br from-primary/5 to-primary/10">
             <CardContent className="p-4">
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <p className="text-xs font-medium text-blue-700 dark:text-blue-300">
+                  <p className="text-xs font-medium text-primary">
                     Leave Days Taken
                   </p>
-                  <Clock className="w-4 h-4 text-blue-600" />
+                  <Clock className="w-4 h-4 text-primary" />
                 </div>
-                <p className="text-3xl font-bold text-blue-700 dark:text-blue-400">
+                <p className="text-3xl font-bold text-primary">
                   {profile.stats.leaveDaysTaken}
                 </p>
-                <div className="flex items-center gap-1 text-xs text-blue-600">
+                <div className="flex items-center gap-1 text-xs text-primary">
                   <TrendingUp className="w-3 h-3" />
                   <span>This year</span>
                 </div>
@@ -247,19 +248,20 @@ export function ProfilePage() {
             </CardContent>
           </Card>
 
-          <Card className="border-none shadow-md hover:shadow-lg transition-shadow bg-gradient-to-br from-yellow-50 to-yellow-100/50 dark:from-yellow-950/30 dark:to-yellow-900/20">
+          {/* Pending Leaves - Accent */}
+          <Card className="border-none shadow-md hover:shadow-lg transition-shadow bg-gradient-to-br from-accent/50 to-accent/30">
             <CardContent className="p-4">
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <p className="text-xs font-medium text-yellow-700 dark:text-yellow-300">
+                  <p className="text-xs font-medium text-accent-foreground">
                     Pending Leaves
                   </p>
-                  <Clock className="w-4 h-4 text-yellow-600" />
+                  <Clock className="w-4 h-4 text-accent-foreground" />
                 </div>
-                <p className="text-3xl font-bold text-yellow-700 dark:text-yellow-400">
+                <p className="text-3xl font-bold text-accent-foreground">
                   {profile.stats.pendingLeaves}
                 </p>
-                <div className="flex items-center gap-1 text-xs text-yellow-600">
+                <div className="flex items-center gap-1 text-xs text-accent-foreground">
                   <TrendingUp className="w-3 h-3" />
                   <span>Awaiting approval</span>
                 </div>
@@ -267,19 +269,20 @@ export function ProfilePage() {
             </CardContent>
           </Card>
 
-          <Card className="border-none shadow-md hover:shadow-lg transition-shadow bg-gradient-to-br from-purple-50 to-purple-100/50 dark:from-purple-950/30 dark:to-purple-900/20">
+          {/* Direct Reports - Secondary */}
+          <Card className="border-none shadow-md hover:shadow-lg transition-shadow bg-gradient-to-br from-secondary to-secondary/80">
             <CardContent className="p-4">
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <p className="text-xs font-medium text-purple-700 dark:text-purple-300">
+                  <p className="text-xs font-medium text-secondary-foreground">
                     Direct Reports
                   </p>
-                  <Users className="w-4 h-4 text-purple-600" />
+                  <Users className="w-4 h-4 text-secondary-foreground" />
                 </div>
-                <p className="text-3xl font-bold text-purple-700 dark:text-purple-400">
+                <p className="text-3xl font-bold text-secondary-foreground">
                   {profile.stats.directReportsCount}
                 </p>
-                <div className="flex items-center gap-1 text-xs text-purple-600">
+                <div className="flex items-center gap-1 text-xs text-secondary-foreground">
                   <TrendingUp className="w-3 h-3" />
                   <span>Team members</span>
                 </div>

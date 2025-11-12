@@ -1,4 +1,3 @@
-// features/root/Sidebar.tsx
 import {
   LayoutDashboard,
   Calendar,
@@ -9,11 +8,10 @@ import {
   X,
   Sparkles,
   CalendarDays,
-  UserCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NavLink, useNavigate } from "react-router";
-import { useAppSelector, useAppDispatch } from "@/lib/hooks";
+import { useAppDispatch } from "@/lib/hooks";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -25,6 +23,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useState, useMemo } from "react";
+import { useAuth } from "../auth/useAuth";
 
 interface SidebarProps {
   isOpen: boolean;
@@ -32,83 +31,70 @@ interface SidebarProps {
 }
 
 export function Sidebar({ isOpen, onClose }: SidebarProps) {
-  const user = useAppSelector((state) => state.auth.user);
+  const { hasAccess } = useAuth();
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
 
-  // Role-based access control
-  const isAdmin = user?.role === "ADMIN";
-  const isHR = user?.role === "HR";
-  const isManager = user?.role === "MANAGER";
+  // Role-based permissions using hasAccess
+  const isAdmin = hasAccess(["ADMIN"]);
+  const isHR = hasAccess(["HR"]);
+  const isManager = hasAccess(["MANAGER"]);
   const isAdminOrHR = isAdmin || isHR;
   const canManageLeaves = isAdmin || isHR || isManager;
 
-  // Define all navigation links with role-based visibility
   const allLinks = [
-    {
-      href: "/in/profile",
-      label: "My Profile",
-      icon: UserCircle,
-      show: true, // Everyone can access their profile
-    },
     {
       href: "/in",
       label: "Dashboard",
       icon: LayoutDashboard,
-      show: true, // Everyone can access dashboard
+      show: true,
     },
     {
       href: "/in/my-leaves",
       label: "My Leaves",
       icon: Calendar,
-      show: true, // Everyone can access their own leaves
+      show: true,
     },
     {
       href: "/in/leave-requests",
       label: "Leave Requests",
       icon: ClipboardList,
-      show: canManageLeaves, // Admin, HR, Manager only
+      show: canManageLeaves,
     },
     {
       href: "/in/leave-policy",
       label: "Leave Policy",
       icon: Shield,
-      show: isAdminOrHR, // Admin and HR only
+      show: isAdminOrHR,
     },
     {
       href: "/in/holidays",
       label: "Holidays",
       icon: CalendarDays,
-      show: isAdminOrHR, // Admin and HR only
+      show: isAdminOrHR,
     },
     {
       href: "/in/organization",
       label: "Organization",
       icon: Building2,
-      // show: isAdminOrHR, // Admin and HR only
       show: true,
     },
   ];
 
-  // Filter links based on user role
   const visibleLinks = useMemo(
     () => allLinks.filter((link) => link.show),
-    [isAdminOrHR, canManageLeaves]
+    [allLinks]
   );
 
   const handleLogout = () => {
-    // Clear user from Redux store
-    dispatch.auth.clearUser();
-
+    dispatch.logout();
     onClose();
-
     navigate("/login", { replace: true });
   };
 
   return (
     <>
-      {/* Mobile Overlay */}
       {isOpen && (
         <div
           className="fixed inset-0 bg-black/40 backdrop-blur-sm z-30 lg:hidden transition-opacity duration-300"
@@ -116,14 +102,12 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
         />
       )}
 
-      {/* Sidebar */}
       <aside
         className={cn(
           "fixed lg:relative z-40 h-dvh w-64 bg-muted text-foreground flex flex-col shadow-xl lg:translate-x-0 transform transition-transform duration-300 ease-in-out",
           isOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
-        {/* Header */}
         <div className="p-4 w-full border-b border-border flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Sparkles className="w-6 h-6 text-primary" />
@@ -139,26 +123,6 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
           </button>
         </div>
 
-        {/* User Info */}
-        {/* <div className="p-4 border-b border-border">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-              <span className="text-sm font-bold text-primary">
-                {user?.username?.charAt(0).toUpperCase() || "U"}
-              </span>
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold truncate">
-                {user?.username || "User"}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {user?.role || "Employee"}
-              </p>
-            </div>
-          </div>
-        </div> */}
-
-        {/* Navigation */}
         <nav className="flex-1 overflow-y-auto p-4 space-y-1">
           {visibleLinks.map(({ href, label, icon: Icon }) => (
             <NavLink
@@ -181,7 +145,6 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
           ))}
         </nav>
 
-        {/* Footer */}
         <div className="p-4 border-t border-border">
           <button
             onClick={() => setShowLogoutDialog(true)}
@@ -193,7 +156,6 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
         </div>
       </aside>
 
-      {/* Logout Confirmation Dialog */}
       <AlertDialog open={showLogoutDialog} onOpenChange={setShowLogoutDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>

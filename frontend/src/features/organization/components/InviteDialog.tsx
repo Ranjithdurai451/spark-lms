@@ -27,7 +27,7 @@ export function InviteDialog({ open, onOpenChange, members }: any) {
   const [formData, setFormData] = useState({
     email: "",
     role: "EMPLOYEE",
-    managerId: "none", // Changed from ""
+    managerId: "none",
   });
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -54,7 +54,7 @@ export function InviteDialog({ open, onOpenChange, members }: any) {
     const payload = {
       invitedEmail: formData.email,
       role: formData.role as Role,
-      managerId: formData.managerId === "none" ? null : formData.managerId, // Convert "none" to null
+      managerId: formData.managerId,
     };
 
     inviteMember(payload, {

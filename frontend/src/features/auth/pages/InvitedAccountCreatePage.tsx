@@ -12,7 +12,7 @@ import { useAppDispatch } from "@/lib/hooks";
 type InviteAccount = z.infer<typeof InviteAccountSchema>;
 export const InvitedAccountCreatePage = () => {
   const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams, _] = useSearchParams();
   const token = searchParams.get("token");
   if (!token) {
     navigate("/");

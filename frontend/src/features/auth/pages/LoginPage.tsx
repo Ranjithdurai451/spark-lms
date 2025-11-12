@@ -4,7 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import * as z from "zod";
 import { Input } from "@/components/ui/input";
-import { ChevronLeft, Eye, EyeOff, Sparkles } from "lucide-react";
+import { Eye, EyeOff, Sparkles } from "lucide-react";
 import { Link, useNavigate } from "react-router";
 import { loginSchema } from "../schemas";
 import { useLoginUser } from "../useAuth";

@@ -26,7 +26,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { format, isBefore, startOfDay } from "date-fns";
+import { format } from "date-fns";
 import { useAddHoliday } from "../useHolidays";
 import { useAppSelector } from "@/lib/hooks";
 import type { HOLIDAY_TYPE } from "@/lib/types";

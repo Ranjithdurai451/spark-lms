@@ -1,5 +1,5 @@
 import AuthService from "@/features/auth/authService";
-import { useApiMutation } from "@/lib/hooks";
+import { useApiMutation, useAppDispatch } from "@/lib/hooks";
 import { useQuery } from "@tanstack/react-query";
 
 //  Register Admin
@@ -36,3 +36,26 @@ export const useCheckAuth = () =>
     },
     retry: false,
   });
+import { useAppSelector } from "@/lib/hooks";
+import { useEffect } from "react";
+
+export function useAuth() {
+  const dispatch = useAppDispatch();
+  const user = useAppSelector((s) => s.auth.user);
+
+  const { data, isLoading, isError } = useCheckAuth();
+  useEffect(() => {
+    if (data) dispatch.auth.setUser(data.user);
+    else dispatch.auth.clearUser();
+  }, [data, dispatch]);
+
+  const hasAccess = (allowedRoles: string[] = []) => {
+    if (!user?.role) return false;
+    return allowedRoles.includes(user.role);
+  };
+  const isCurrentUser = (resourceUserId?: string) => {
+    return user?.id === resourceUserId;
+  };
+
+  return { user, isLoading, isError, hasAccess, isCurrentUser };
+}

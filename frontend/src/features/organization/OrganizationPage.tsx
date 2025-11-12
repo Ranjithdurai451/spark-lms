@@ -1,40 +1,25 @@
-// features/organization/OrganizationPage.tsx
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import {
-  Plus,
-  Edit2,
-  Trash2,
-  RefreshCcw,
-  Users2,
-  Mail,
-  MoreHorizontal,
-  UserCircle,
-  LayoutGrid,
-  Table as TableIcon,
-  Search,
-  X,
-  TrendingUp,
-  Loader,
-} from "lucide-react";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  DropdownMenuSeparator,
-} from "@/components/ui/dropdown-menu";
+import { Plus, Users2, Search, X } from "lucide-react";
 import { EditMemberDialog } from "./components/EditMemberDialog";
 import { InviteDialog } from "./components/InviteDialog";
-import { useGetOrganizationById } from "./useOrganization";
+import {
+  useGetOrganizationById,
+  useOrganizationMembers,
+} from "./useOrganization";
 import { OrganizationSkeleton } from "./components/OrganizationSkeleton";
-import { useAppSelector } from "@/lib/hooks";
-import { cn } from "@/lib/utils";
 import { queryClient } from "../root/Providers";
 import { DeleteConfirmDialog } from "./components/delete-confirm-dialog";
+import ErrorPage from "../common/components/ErrorPage";
+import { PageHeader } from "../common/components/PageHeader";
+import OrganizationPageStats from "./components/OrganizationPageStats";
+import { ViewModeToggle } from "../common/components/ViewModeToggle";
+import { MemberCard } from "./components/MemberCard";
+import { MemberTableRow } from "./components/MemberTableRow";
+import { getRoleColor } from "./utils";
+import { useAuth } from "../auth/useAuth";
 
 export function OrganizationPage() {
   const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
@@ -43,7 +28,7 @@ export function OrganizationPage() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [isInviteOpen, setIsInviteOpen] = useState(false);
 
-  const user = useAppSelector((state) => state.auth.user);
+  const { user, hasAccess, isCurrentUser } = useAuth();
 
   const { data, isLoading, isError, error, refetch, isFetching } =
     useGetOrganizationById(user?.organization?.id ?? "");
@@ -51,47 +36,11 @@ export function OrganizationPage() {
   const org = data?.data;
   const members = org?.users || [];
 
-  // Check if current user can edit/delete
-  const canManageMembers = ["ADMIN", "HR"].includes(user?.role || "");
-
-  const filteredMembers = useMemo(() => {
-    if (!searchQuery.trim()) return members;
-
-    const query = searchQuery.toLowerCase();
-    return members.filter(
-      (m) =>
-        m.username.toLowerCase().includes(query) ||
-        m.email.toLowerCase().includes(query) ||
-        m.role.toLowerCase().includes(query) ||
-        m.manager?.username.toLowerCase().includes(query)
-    );
-  }, [members, searchQuery]);
-
-  const roleStats = useMemo(
-    () => ({
-      total: members.length,
-      admin: members.filter((m) => m.role === "ADMIN").length,
-      hr: members.filter((m) => m.role === "HR").length,
-      manager: members.filter((m) => m.role === "MANAGER").length,
-      employee: members.filter((m) => m.role === "EMPLOYEE").length,
-    }),
-    [members]
+  const { filteredMembers, roleStats } = useOrganizationMembers(
+    members,
+    searchQuery
   );
-
-  const getRoleColor = (role: string) => {
-    switch (role) {
-      case "ADMIN":
-        return "bg-yellow-50 text-yellow-700 border-yellow-200 dark:bg-yellow-950/30 dark:border-none dark:text-yellow-400";
-      case "HR":
-        return "bg-green-50 text-green-700 border-green-200 dark:bg-green-950/30 dark:border-none dark:text-green-400";
-      case "MANAGER":
-        return "bg-red-50 text-red-700 border-red-200 dark:bg-red-950/30 dark:border-none dark:text-red-400";
-      case "EMPLOYEE":
-        return "bg-gray-50 text-gray-700 border-gray-200 dark:bg-gray-950/30 dark:border-none dark:text-gray-400";
-      default:
-        return "bg-primary/10 text-primary border-primary/20";
-    }
-  };
+  const canManage = hasAccess(["ADMIN", "HR"]);
 
   const handleRefetchAfterChange = () => {
     if (org?.id) {
@@ -99,38 +48,22 @@ export function OrganizationPage() {
     }
   };
 
-  // ✅ Helper: Check if member is current user
-  const isCurrentUser = (memberId: string) => memberId === user?.id;
-
-  // ✅ Helper: Check if user can perform action on member
-  const canPerformAction = (member: any) => {
-    // Can't delete/edit yourself
-    if (isCurrentUser(member.id)) return false;
-    // Only ADMIN/HR can manage members
-    return canManageMembers;
-  };
-
   if (isLoading) return <OrganizationSkeleton />;
 
   if (isError)
     return (
-      <div className="flex flex-col items-center justify-center h-[80vh] space-y-4 text-center">
-        <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center mb-2">
-          <X className="w-8 h-8 text-destructive" />
-        </div>
-        <p className="text-destructive font-semibold text-lg">
-          {error.response?.data?.message || "Failed to load organization."}
-        </p>
-        <Button onClick={() => refetch()} variant="outline" className="gap-2">
-          <RefreshCcw className="w-4 h-4" /> Retry
-        </Button>
-      </div>
+      <ErrorPage
+        message={
+          error.response?.data?.message || "Failed to load organization."
+        }
+        refetch={refetch}
+      />
     );
 
   if (!org)
     return (
       <div className="flex flex-col items-center justify-center h-[80vh] space-y-4 text-center">
-        <div className="w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center mb-2">
+        <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-2">
           <Users2 className="w-8 h-8 text-muted-foreground" />
         </div>
         <p className="text-muted-foreground text-lg">
@@ -146,17 +79,11 @@ export function OrganizationPage() {
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20">
       <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
-                {org.organizationName}
-              </h1>
-              {isFetching && (
-                <Loader className="w-4 h-4 animate-spin text-muted-foreground" />
-              )}
-            </div>
-            <div className="flex items-center gap-3 text-sm text-muted-foreground">
+        <PageHeader
+          title={org.organizationName}
+          isLoading={isFetching}
+          subtitle={
+            <div className="flex items-center gap-3">
               <span className="font-mono text-xs">{org.organizationCode}</span>
               {org.organizationDescription && (
                 <>
@@ -165,100 +92,21 @@ export function OrganizationPage() {
                 </>
               )}
             </div>
-          </div>
-          {canManageMembers && (
-            <Button
-              size="default"
-              className="gap-2 shadow-lg hover:shadow-xl transition-all"
-              onClick={() => setIsInviteOpen(true)}
-            >
-              <Plus className="w-4 h-4" /> Invite Member
-            </Button>
-          )}
-        </div>
+          }
+          action={
+            canManage && (
+              <Button
+                size="default"
+                className="gap-2 shadow-lg hover:shadow-xl transition-all"
+                onClick={() => setIsInviteOpen(true)}
+              >
+                <Plus className="w-4 h-4" /> Invite Member
+              </Button>
+            )
+          }
+        />
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 sm:gap-4">
-          <Card className="border-none shadow-md hover:shadow-lg transition-shadow bg-gradient-to-br from-primary/5 to-primary/10">
-            <CardContent className="p-4">
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <p className="text-xs font-medium text-muted-foreground">
-                    Total Members
-                  </p>
-                  <TrendingUp className="w-4 h-4 text-primary/60" />
-                </div>
-                <p className="text-3xl font-bold text-primary">
-                  {roleStats.total}
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-none shadow-md hover:shadow-lg transition-shadow bg-gradient-to-br from-yellow-50 to-yellow-100/50 dark:from-yellow-950/30 dark:to-yellow-900/20">
-            <CardContent className="p-4">
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <p className="text-xs font-medium text-yellow-700 dark:text-yellow-300">
-                    Admin
-                  </p>
-                  <Users2 className="w-4 h-4 text-yellow-600" />
-                </div>
-                <p className="text-3xl font-bold text-yellow-700 dark:text-yellow-400">
-                  {roleStats.admin}
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-none shadow-md hover:shadow-lg transition-shadow bg-gradient-to-br from-green-50 to-green-100/50 dark:from-green-950/30 dark:to-green-900/20">
-            <CardContent className="p-4">
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <p className="text-xs font-medium text-green-700 dark:text-green-300">
-                    HR
-                  </p>
-                  <Users2 className="w-4 h-4 text-green-600" />
-                </div>
-                <p className="text-3xl font-bold text-green-700 dark:text-green-400">
-                  {roleStats.hr}
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-none shadow-md hover:shadow-lg transition-shadow bg-gradient-to-br from-red-50 to-red-100/50 dark:from-red-950/30 dark:to-red-900/20">
-            <CardContent className="p-4">
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <p className="text-xs font-medium text-red-700 dark:text-red-300">
-                    Manager
-                  </p>
-                  <Users2 className="w-4 h-4 text-red-600" />
-                </div>
-                <p className="text-3xl font-bold text-red-700 dark:text-red-400">
-                  {roleStats.manager}
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-none shadow-md hover:shadow-lg transition-shadow bg-gradient-to-br from-gray-50 to-gray-100/50 dark:from-gray-950/30 dark:to-gray-900/20">
-            <CardContent className="p-4">
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <p className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                    Employee
-                  </p>
-                  <Users2 className="w-4 h-4 text-gray-600" />
-                </div>
-                <p className="text-3xl font-bold text-gray-700 dark:text-gray-400">
-                  {roleStats.employee}
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+        <OrganizationPageStats roleStats={roleStats} />
 
         {/* Main Content Card */}
         <Card className="border-none shadow-xl">
@@ -295,32 +143,17 @@ export function OrganizationPage() {
                 </p>
               </div>
 
-              {/* View Toggle */}
-              <div className="flex gap-1 border rounded-lg p-1 bg-background shrink-0">
-                <Button
-                  variant={viewMode === "grid" ? "secondary" : "ghost"}
-                  size="sm"
-                  onClick={() => setViewMode("grid")}
-                  className="h-8"
-                >
-                  <LayoutGrid className="w-4 h-4" />
-                </Button>
-                <Button
-                  variant={viewMode === "table" ? "secondary" : "ghost"}
-                  size="sm"
-                  onClick={() => setViewMode("table")}
-                  className="h-8"
-                >
-                  <TableIcon className="w-4 h-4" />
-                </Button>
-              </div>
+              <ViewModeToggle
+                viewMode={viewMode}
+                onViewModeChange={setViewMode}
+              />
             </div>
           </CardHeader>
 
           <CardContent className="p-0">
             {filteredMembers.length === 0 ? (
               <div className="py-16 text-center">
-                <div className="mx-auto w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center mb-4">
+                <div className="mx-auto w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
                   {searchQuery ? (
                     <Search className="w-8 h-8 text-muted-foreground" />
                   ) : (
@@ -344,7 +177,7 @@ export function OrganizationPage() {
                     <X className="w-4 h-4" />
                     Clear Search
                   </Button>
-                ) : canManageMembers ? (
+                ) : canManage ? (
                   <Button
                     variant="outline"
                     onClick={() => setIsInviteOpen(true)}
@@ -356,135 +189,22 @@ export function OrganizationPage() {
                 ) : null}
               </div>
             ) : viewMode === "grid" ? (
-              /* ✅ Grid View - Updated */
+              /* Grid View */
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-6">
-                {filteredMembers.map((member) => {
-                  const isCurrent = isCurrentUser(member.id);
-                  const canManage = canPerformAction(member);
-
-                  return (
-                    <Card
-                      key={member.id}
-                      className={cn(
-                        "group hover:shadow-xl transition-all duration-300 border-none shadow-md overflow-hidden",
-                        isCurrent && "ring-2 ring-primary/20"
-                      )}
-                    >
-                      <div
-                        className={cn(
-                          "absolute top-0 left-0 w-1 h-full",
-                          isCurrent
-                            ? "bg-gradient-to-b from-primary to-primary/50"
-                            : "bg-gradient-to-b from-muted to-muted/50"
-                        )}
-                      />
-                      <CardContent className="p-4 pl-5">
-                        <div className="space-y-3">
-                          {/* Header */}
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="flex items-center gap-3 min-w-0">
-                              <div
-                                className={cn(
-                                  "w-10 h-10 rounded-full flex items-center justify-center shrink-0",
-                                  isCurrent
-                                    ? "bg-primary text-primary-foreground"
-                                    : "bg-primary/10"
-                                )}
-                              >
-                                <span
-                                  className={cn(
-                                    "text-sm font-bold",
-                                    isCurrent ? "text-white" : "text-primary"
-                                  )}
-                                >
-                                  {member.username.charAt(0).toUpperCase()}
-                                </span>
-                              </div>
-                              <div className="min-w-0 flex-1">
-                                <div className="flex items-center gap-2">
-                                  <p className="text-sm font-semibold truncate">
-                                    {member.username}
-                                  </p>
-                                  {isCurrent && (
-                                    <Badge className="bg-primary/10 text-primary border-primary/20 text-[10px] h-5">
-                                      You
-                                    </Badge>
-                                  )}
-                                </div>
-                                <Badge
-                                  className={cn(
-                                    "mt-1 text-[10px] h-5 font-medium border",
-                                    getRoleColor(member.role)
-                                  )}
-                                >
-                                  {member.role}
-                                </Badge>
-                              </div>
-                            </div>
-
-                            {/* ✅ Actions - Only show if user can manage */}
-                            {canManage && (
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-8 w-8 shrink-0"
-                                  >
-                                    <MoreHorizontal className="w-4 h-4" />
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent
-                                  align="end"
-                                  className="w-40"
-                                >
-                                  <DropdownMenuItem
-                                    onClick={() => setEditingMember(member)}
-                                  >
-                                    <Edit2 className="w-4 h-4 mr-2" />
-                                    Edit
-                                  </DropdownMenuItem>
-                                  <DropdownMenuSeparator />
-                                  <DropdownMenuItem
-                                    onClick={() => setDeletingId(member.id)}
-                                    className="text-destructive focus:text-destructive"
-                                  >
-                                    <Trash2 className="w-4 h-4 mr-2" />
-                                    Delete
-                                  </DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            )}
-                          </div>
-
-                          {/* Email */}
-                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                            <Mail className="w-3.5 h-3.5 shrink-0" />
-                            <span className="truncate">{member.email}</span>
-                          </div>
-
-                          {/* Manager */}
-                          {member.manager && (
-                            <div className="flex items-center gap-2 pt-2 border-t">
-                              <UserCircle className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                              <div className="min-w-0 flex-1">
-                                <p className="text-[10px] text-muted-foreground">
-                                  Reports to
-                                </p>
-                                <p className="text-xs font-medium truncate">
-                                  {member.manager.username}
-                                </p>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
+                {filteredMembers.map((member) => (
+                  <MemberCard
+                    key={member.id}
+                    member={member}
+                    isCurrent={isCurrentUser(member.id)}
+                    canManage={canManage && !isCurrentUser(member.id)}
+                    getRoleColor={getRoleColor}
+                    onEdit={() => setEditingMember(member)}
+                    onDelete={() => setDeletingId(member.id)}
+                  />
+                ))}
               </div>
             ) : (
-              /* ✅ Table View - Updated */
+              /* Table View */
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead className="bg-muted/50 border-b">
@@ -501,7 +221,7 @@ export function OrganizationPage() {
                       <th className="p-4 text-left text-xs font-semibold text-muted-foreground">
                         MANAGER
                       </th>
-                      {canManageMembers && (
+                      {canManage && (
                         <th className="p-4 text-right text-xs font-semibold text-muted-foreground">
                           ACTIONS
                         </th>
@@ -509,111 +229,18 @@ export function OrganizationPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredMembers.map((member) => {
-                      const isCurrent = isCurrentUser(member.id);
-                      const canManage = canPerformAction(member);
-
-                      return (
-                        <tr
-                          key={member.id}
-                          className={cn(
-                            "border-b hover:bg-muted/30 transition-colors group",
-                            isCurrent && "bg-primary/5"
-                          )}
-                        >
-                          <td className="p-4">
-                            <div className="flex items-center gap-3">
-                              <div
-                                className={cn(
-                                  "w-9 h-9 rounded-full flex items-center justify-center shrink-0",
-                                  isCurrent
-                                    ? "bg-primary text-primary-foreground"
-                                    : "bg-primary/10"
-                                )}
-                              >
-                                <span
-                                  className={cn(
-                                    "text-xs font-bold",
-                                    isCurrent ? "text-white" : "text-primary"
-                                  )}
-                                >
-                                  {member.username.charAt(0).toUpperCase()}
-                                </span>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <p className="text-sm font-medium">
-                                  {member.username}
-                                </p>
-                                {isCurrent && (
-                                  <Badge className="bg-primary/10 text-primary border-primary/20 text-[10px] h-5">
-                                    You
-                                  </Badge>
-                                )}
-                              </div>
-                            </div>
-                          </td>
-                          <td className="p-4">
-                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                              <Mail className="w-3.5 h-3.5" />
-                              {member.email}
-                            </div>
-                          </td>
-                          <td className="p-4">
-                            <Badge
-                              className={cn(
-                                "text-xs font-medium border",
-                                getRoleColor(member.role)
-                              )}
-                            >
-                              {member.role}
-                            </Badge>
-                          </td>
-                          <td className="p-4 text-sm text-muted-foreground">
-                            {member.manager?.username || "-"}
-                          </td>
-                          {canManageMembers && (
-                            <td className="p-4 text-right">
-                              {canManage ? (
-                                <DropdownMenu>
-                                  <DropdownMenuTrigger asChild>
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-8 w-8"
-                                    >
-                                      <MoreHorizontal className="w-4 h-4" />
-                                    </Button>
-                                  </DropdownMenuTrigger>
-                                  <DropdownMenuContent
-                                    align="end"
-                                    className="w-40"
-                                  >
-                                    <DropdownMenuItem
-                                      onClick={() => setEditingMember(member)}
-                                    >
-                                      <Edit2 className="w-4 h-4 mr-2" />
-                                      Edit
-                                    </DropdownMenuItem>
-                                    <DropdownMenuSeparator />
-                                    <DropdownMenuItem
-                                      onClick={() => setDeletingId(member.id)}
-                                      className="text-destructive focus:text-destructive"
-                                    >
-                                      <Trash2 className="w-4 h-4 mr-2" />
-                                      Delete
-                                    </DropdownMenuItem>
-                                  </DropdownMenuContent>
-                                </DropdownMenu>
-                              ) : (
-                                <span className="text-xs text-muted-foreground">
-                                  -
-                                </span>
-                              )}
-                            </td>
-                          )}
-                        </tr>
-                      );
-                    })}
+                    {filteredMembers.map((member) => (
+                      <MemberTableRow
+                        key={member.id}
+                        member={member}
+                        isCurrent={isCurrentUser(member.id)}
+                        canManage={canManage && !isCurrentUser(member.id)}
+                        canManageMembers={canManage}
+                        getRoleColor={getRoleColor}
+                        onEdit={() => setEditingMember(member)}
+                        onDelete={() => setDeletingId(member.id)}
+                      />
+                    ))}
                   </tbody>
                 </table>
               </div>
@@ -622,7 +249,7 @@ export function OrganizationPage() {
         </Card>
 
         {/* Dialogs */}
-        {canManageMembers && (
+        {canManage && (
           <InviteDialog
             open={isInviteOpen}
             onOpenChange={setIsInviteOpen}

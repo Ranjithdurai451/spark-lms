@@ -1,4 +1,3 @@
-// backend/controllers/leaveController.ts
 import type { Request, Response } from "express";
 import { prisma } from "../db";
 import {
@@ -6,12 +5,16 @@ import {
   calculateBusinessDays,
   checkLeaveOverlap,
 } from "../lib/helpers/leaves.helper";
-import { sendLeaveRequestEmail } from "../lib/helpers/mail.helper";
+import {
+  sendLeaveRequestEmail,
+  sendLeaveStatusEmail,
+} from "../lib/helpers/mail.helper";
 
 /* ──────────────── GET ALL LEAVES (Organization-wide) ──────────────── */
 export const getAllLeaves = async (req: Request, res: Response) => {
   try {
     const orgId = req.user?.organization?.id;
+    console.log(orgId);
 
     if (!orgId) {
       return res.status(400).json({ message: "Organization not found." });
@@ -21,7 +24,13 @@ export const getAllLeaves = async (req: Request, res: Response) => {
       where: { organizationId: orgId },
       include: {
         employee: {
-          select: { id: true, username: true, email: true, role: true },
+          select: {
+            id: true,
+            username: true,
+            email: true,
+            role: true,
+            managerId: true,
+          },
         },
         approver: {
           select: { id: true, username: true, email: true },
@@ -35,7 +44,7 @@ export const getAllLeaves = async (req: Request, res: Response) => {
       data: leaves,
     });
   } catch (error) {
-    console.error(" getAllLeaves error:", error);
+    console.error("❌ getAllLeaves error:", error);
     res.status(500).json({ message: "Failed to fetch leaves." });
   }
 };
@@ -61,7 +70,7 @@ export const getMyLeaves = async (req: Request, res: Response) => {
       data: leaves,
     });
   } catch (error) {
-    console.error(" getMyLeaves error:", error);
+    console.error("❌ getMyLeaves error:", error);
     res.status(500).json({ message: "Failed to fetch your leaves." });
   }
 };
@@ -76,7 +85,6 @@ export const createLeave = async (req: Request, res: Response) => {
       return res.status(400).json({ message: "Missing required fields." });
     }
 
-    // Calculate business days
     const days = await calculateBusinessDays(
       new Date(startDate),
       new Date(endDate),
@@ -89,7 +97,6 @@ export const createLeave = async (req: Request, res: Response) => {
       });
     }
 
-    // Check overlap
     const overlapError = await checkLeaveOverlap(
       req.user.id,
       new Date(startDate),
@@ -99,7 +106,6 @@ export const createLeave = async (req: Request, res: Response) => {
       return res.status(400).json({ message: overlapError });
     }
 
-    // Get leave policy
     const policy = await prisma.leavePolicy.findFirst({
       where: {
         name: type,
@@ -112,7 +118,6 @@ export const createLeave = async (req: Request, res: Response) => {
       return res.status(404).json({ message: "Leave policy not found." });
     }
 
-    // Check balance
     const balance = await prisma.leaveBalance.findFirst({
       where: {
         employeeId: req.user.id,
@@ -128,7 +133,6 @@ export const createLeave = async (req: Request, res: Response) => {
       });
     }
 
-    // Validate minimum notice
     const minNoticeError = await validateMinNotice(
       new Date(startDate),
       policy.minNotice
@@ -159,7 +163,6 @@ export const createLeave = async (req: Request, res: Response) => {
       },
     });
 
-    // Send email notifications
     const notifyEmails: string[] = [];
 
     if (leave.approver?.email) {
@@ -193,7 +196,7 @@ export const createLeave = async (req: Request, res: Response) => {
       data: leave,
     });
   } catch (error) {
-    console.error(" createLeave error:", error);
+    console.error("❌ createLeave error:", error);
     return res.status(500).json({ message: "Failed to create leave." });
   }
 };
@@ -209,14 +212,12 @@ export const cancelLeave = async (req: Request, res: Response) => {
       return res.status(404).json({ message: "Leave not found." });
     }
 
-    // Only owner can cancel
     if (leave.employeeId !== req.user.id) {
       return res
         .status(403)
         .json({ message: "Unauthorized to cancel this leave." });
     }
 
-    // Only pending leaves can be cancelled
     if (leave.status !== "PENDING") {
       return res.status(400).json({
         message: `Cannot cancel a ${leave.status.toLowerCase()} leave request.`,
@@ -238,12 +239,12 @@ export const cancelLeave = async (req: Request, res: Response) => {
       data: updated,
     });
   } catch (error) {
-    console.error(" cancelLeave error:", error);
+    console.error("❌ cancelLeave error:", error);
     res.status(500).json({ message: "Failed to cancel leave." });
   }
 };
 
-/* ──────────────── UPDATE LEAVE STATUS (HR / Manager / Admin) ──────────────── */
+/* ──────────────── UPDATE LEAVE STATUS  ──────────────── */
 export const updateLeaveStatus = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
@@ -271,21 +272,59 @@ export const updateLeaveStatus = async (req: Request, res: Response) => {
       return res.status(404).json({ message: "Leave not found." });
     }
 
-    // Only pending leaves can be approved/rejected
     if (leave.status !== "PENDING") {
       return res.status(400).json({
         message: `This leave is already ${leave.status.toLowerCase()}.`,
       });
     }
 
-    // Authorization
-    const isDirectManager = req.user.id === leave.employee.managerId;
-    const isAuthorizedRole = ["HR", "ADMIN", "MANAGER"].includes(req.user.role);
-    const isAssignedApprover = req.user.id === leave.approverId;
+    const currentUserId = req.user.id;
+    const currentUserRole = req.user.role;
 
-    if (!isDirectManager && !isAuthorizedRole && !isAssignedApprover) {
+    let canApprove = false;
+    let approvalReason = "";
+
+    // Priority 1: Direct Manager
+    if (currentUserId === leave.employee.managerId) {
+      canApprove = true;
+      approvalReason = "direct manager";
+    }
+    // Priority 2: Assigned Approver
+    else if (currentUserId === leave.approverId) {
+      canApprove = true;
+      approvalReason = "assigned approver";
+    }
+    // Priority 3: HR/ADMIN (organization-wide authority)
+    else if (["HR", "ADMIN"].includes(currentUserRole)) {
+      canApprove = true;
+      approvalReason =
+        currentUserRole === "HR" ? "HR authority" : "Admin authority";
+    }
+    // Priority 4: MANAGER role - check if in reporting chain
+    // else if (currentUserRole === "MANAGER") {
+    //   const isInReportingChain = await prisma.user.findFirst({
+    //     where: {
+    //       id: leave.employeeId,
+    //       OR: [
+    //         { managerId: currentUserId },
+    //         {
+    //           manager: {
+    //             managerId: currentUserId,
+    //           },
+    //         },
+    //       ],
+    //     },
+    //   });
+
+    // if (isInReportingChain) {
+    //   canApprove = true;
+    //   approvalReason = "manager in reporting chain";
+    // }
+    // }
+
+    if (!canApprove) {
       return res.status(403).json({
-        message: "Unauthorized to approve/reject this leave.",
+        message: "You are not authorized to approve/reject this leave request.",
       });
     }
 
@@ -337,7 +376,6 @@ export const updateLeaveStatus = async (req: Request, res: Response) => {
         },
       });
 
-      // Handle balance based on status
       if (status === "APPROVED") {
         const balance = await tx.leaveBalance.findFirst({
           where: {
@@ -360,12 +398,24 @@ export const updateLeaveStatus = async (req: Request, res: Response) => {
       return updatedLeave;
     });
 
+    //  Send email notification to employee
+    await sendLeaveStatusEmail({
+      to: result.employee.email,
+      employeeName: result.employee.username,
+      leaveType: result.type,
+      startDate: result.startDate,
+      endDate: result.endDate,
+      days: result.days,
+      status: status as "APPROVED" | "REJECTED",
+      approverName: req.user.username,
+    });
+
     res.status(200).json({
-      message: `Leave ${status.toLowerCase()} successfully.`,
+      message: `Leave ${status.toLowerCase()} successfully by ${approvalReason}.`,
       data: result,
     });
   } catch (error) {
-    console.error(" updateLeaveStatus error:", error);
+    console.error("❌ updateLeaveStatus error:", error);
     res.status(500).json({ message: "Failed to update leave status." });
   }
 };
@@ -381,7 +431,6 @@ export const deleteLeave = async (req: Request, res: Response) => {
       return res.status(404).json({ message: "Leave not found." });
     }
 
-    // Only HR/ADMIN can delete
     const allowedRoles = ["HR", "ADMIN"];
     if (!allowedRoles.includes(req.user.role)) {
       return res.status(403).json({
@@ -390,7 +439,6 @@ export const deleteLeave = async (req: Request, res: Response) => {
     }
 
     await prisma.$transaction(async (tx) => {
-      // Restore balance if leave was APPROVED
       if (leave.status === "APPROVED") {
         const balance = await tx.leaveBalance.findFirst({
           where: {
@@ -417,7 +465,7 @@ export const deleteLeave = async (req: Request, res: Response) => {
       message: "Leave deleted successfully.",
     });
   } catch (error) {
-    console.error("deleteLeave error:", error);
+    console.error("❌ deleteLeave error:", error);
     res.status(500).json({ message: "Failed to delete leave." });
   }
 };

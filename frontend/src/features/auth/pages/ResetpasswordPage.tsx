@@ -16,7 +16,7 @@ import { useNavigate, useSearchParams } from "react-router";
 
 const ResetPasswordPage = () => {
   const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams, _] = useSearchParams();
   const token = searchParams.get("token");
   if (!token) {
     navigate("/");

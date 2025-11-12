@@ -1,25 +1,4 @@
-// features/dashboard/DashboardPage.tsx
-import { useState, useMemo } from "react";
-import {
-  Calendar,
-  AlertCircle,
-  CheckCircle2,
-  Clock,
-  TrendingUp,
-  ChevronLeft,
-  ChevronRight,
-  Eye,
-} from "lucide-react";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { useState } from "react";
 import { useAppSelector } from "@/lib/hooks";
 import {
   useGetMyLeaves,
@@ -28,23 +7,28 @@ import {
 import { useGetAllLeaves } from "../leave-requests/useLeaveRequests";
 import { useGetHolidays } from "../holidays/useHolidays";
 import { useGetOrganizationById } from "../organization/useOrganization";
+import { DashboardHolidaySlider } from "./components/DashboardHolidaySlider";
+import { DashboardPendingApprovals } from "./components/DashboardPendingApprovals";
 import { ApproveRejectDialog } from "../leave-requests/components/ApproveRejectDialog";
 import { ViewHolidaysDialog } from "./components/ViewHolidaysDialog";
-import { format, isFuture, isToday, differenceInDays } from "date-fns";
 import { DashboardSkeleton } from "./components/DashboardSkeleton";
+import type { User, FullOrganization } from "@/lib/types";
+import { Calendar, AlertCircle, CheckCircle2, Clock } from "lucide-react";
+import type { Holiday } from "../holidays/holidayService";
+import type { Leave, LeaveBalance } from "../my-leaves/MyleavesService";
+import { DashboardStatCard } from "./components/DashboardStatsCard";
+import { useDashboardData } from "./useDashboardData";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 
 export function DashboardPage() {
-  const user = useAppSelector((state) => state.auth.user);
-  const isAdmin = ["ADMIN", "HR", "MANAGER"].includes(user?.role || "");
-
-  const [actionLeave, setActionLeave] = useState<{
-    leave: any;
-    action: "APPROVED" | "REJECTED";
-  } | null>(null);
-  const [holidayDialogOpen, setHolidayDialogOpen] = useState(false);
-  const [currentHolidayIndex, setCurrentHolidayIndex] = useState(0);
-
-  // Fetch data
+  const user = useAppSelector((state) => state.auth.user) as User;
   const { data: myLeavesData, isLoading: loadingMyLeaves } = useGetMyLeaves();
   const { data: balancesData, isLoading: loadingBalances } =
     useGetMyLeaveBalances();
@@ -57,143 +41,29 @@ export function DashboardPage() {
     user?.organization?.id ?? ""
   );
 
-  const myLeaves = myLeavesData?.data ?? [];
-  const balances = balancesData?.data ?? [];
-  const allLeaves = allLeavesData?.data ?? [];
-  const holidays = holidaysData?.data ?? [];
-  const organization = orgData?.data;
+  const myLeaves = (myLeavesData?.data as Leave[]) || [];
+  const balances = (balancesData?.data as LeaveBalance[]) || [];
+  const allLeaves = (allLeavesData?.data as Leave[]) || [];
+  const holidays = (holidaysData?.data as Holiday[]) || [];
+  const organization = orgData?.data as FullOrganization;
 
-  // Calculate stats with real balance data
-  const stats = useMemo(() => {
-    const approved = myLeaves.filter((l) => l.status === "APPROVED");
-    const pending = myLeaves.filter((l) => l.status === "PENDING");
-    const totalUsed = approved.reduce((sum, l) => sum + l.days, 0);
+  const {
+    isAdmin,
+    stats,
+    pendingRequests,
+    recentApprovals,
+    teamStats,
+    upcomingHolidays,
+    currentHolidayIndex,
+    setCurrentHolidayIndex,
+  } = useDashboardData(myLeaves, balances, allLeaves, holidays, organization);
 
-    // Get next upcoming leave
-    const upcomingLeaves = approved
-      .filter((l) => isFuture(new Date(l.startDate)))
-      .sort(
-        (a, b) =>
-          new Date(a.startDate).getTime() - new Date(b.startDate).getTime()
-      );
+  const [actionLeave, setActionLeave] = useState<{
+    leave: Leave;
+    action: "APPROVED" | "REJECTED";
+  } | null>(null);
 
-    const nextLeave = upcomingLeaves[0];
-
-    // Calculate total remaining balance from all leave policies
-    const totalRemaining = balances.reduce(
-      (sum, b) => sum + b.remainingDays,
-      0
-    );
-    const totalAllocated = balances.reduce((sum, b) => sum + b.totalDays, 0);
-    const utilizationPercent =
-      totalAllocated > 0 ? Math.round((totalUsed / totalAllocated) * 100) : 0;
-
-    return {
-      totalBalance: totalRemaining,
-      totalAllocated,
-      pending: pending.length,
-      approved: totalUsed,
-      upcoming: nextLeave
-        ? {
-            days: nextLeave.days,
-            dates: `${format(
-              new Date(nextLeave.startDate),
-              "MMM d"
-            )} - ${format(new Date(nextLeave.endDate), "MMM d")}`,
-          }
-        : null,
-      utilizationPercent,
-    };
-  }, [myLeaves, balances]);
-
-  // Pending requests for admin
-  const pendingRequests = useMemo(() => {
-    if (!isAdmin) return [];
-    return allLeaves
-      .filter((l) => l.status === "PENDING")
-      .slice(0, 3)
-      .map((leave) => ({
-        id: leave.id,
-        employee: leave.employee.username,
-        dates: `${format(new Date(leave.startDate), "MMM d")} - ${format(
-          new Date(leave.endDate),
-          "MMM d"
-        )}`,
-        type: leave.type,
-        reason: leave.reason || "No reason provided",
-        status: leave.status,
-        days: leave.days,
-        leave,
-      }));
-  }, [allLeaves, isAdmin]);
-
-  // Recent approvals
-  const recentApprovals = useMemo(() => {
-    const approvedLeaves = isAdmin
-      ? allLeaves.filter((l) => l.status === "APPROVED")
-      : myLeaves.filter((l) => l.status === "APPROVED");
-
-    return approvedLeaves
-      .sort(
-        (a, b) =>
-          new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
-      )
-      .slice(0, 5)
-      .map((leave) => ({
-        employee: isAdmin ? leave?.employee?.username : "You",
-        type: leave.type,
-        dates: `${format(new Date(leave.startDate), "MMM d")} - ${format(
-          new Date(leave.endDate),
-          "MMM d"
-        )}`,
-        status: leave.status,
-        days: leave.days,
-      }));
-  }, [allLeaves, myLeaves, isAdmin]);
-
-  // Team overview (admin only)
-  const teamStats = useMemo(() => {
-    if (!isAdmin) return null;
-
-    const totalEmployees = organization?.users?.length ?? 0;
-    const onLeaveToday = allLeaves.filter((l) => {
-      if (l.status !== "APPROVED") return false;
-      const start = new Date(l.startDate);
-      const end = new Date(l.endDate);
-      const today = new Date();
-      return start <= today && end >= today;
-    }).length;
-
-    const pendingCount = allLeaves.filter((l) => l.status === "PENDING").length;
-
-    return {
-      totalEmployees,
-      onLeaveToday,
-      pendingCount,
-    };
-  }, [allLeaves, organization, isAdmin]);
-
-  // Upcoming holidays
-  const upcomingHolidays = useMemo(() => {
-    return holidays
-      .filter((h) => isFuture(new Date(h.date)) || isToday(new Date(h.date)))
-      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-      .slice(0, 5);
-  }, [holidays]);
-
-  const handlePrevHoliday = () => {
-    setCurrentHolidayIndex((prev) =>
-      prev > 0 ? prev - 1 : upcomingHolidays.length - 1
-    );
-  };
-
-  const handleNextHoliday = () => {
-    setCurrentHolidayIndex((prev) =>
-      prev < upcomingHolidays.length - 1 ? prev + 1 : 0
-    );
-  };
-
-  const currentHoliday = upcomingHolidays[currentHolidayIndex];
+  const [holidayDialogOpen, setHolidayDialogOpen] = useState(false);
 
   const isLoading =
     loadingMyLeaves ||
@@ -201,9 +71,7 @@ export function DashboardPage() {
     (isAdmin && loadingAllLeaves) ||
     loadingHolidays;
 
-  if (isLoading) {
-    return <DashboardSkeleton />;
-  }
+  if (isLoading) return <DashboardSkeleton />;
 
   const statCards = [
     {
@@ -213,9 +81,8 @@ export function DashboardPage() {
       subtext: `Of ${stats.totalAllocated} days`,
       icon: Calendar,
       trend: `${stats.utilizationPercent}% utilized`,
-      color:
-        "from-blue-50 to-blue-100/50 dark:from-blue-950/30 dark:to-blue-900/20",
-      iconColor: "text-blue-600",
+      color: "from-primary/5 to-primary/10",
+      iconColor: "text-primary",
     },
     {
       title: "Pending Approvals",
@@ -225,9 +92,8 @@ export function DashboardPage() {
       subtext: isAdmin ? "Awaiting your review" : "Awaiting response",
       icon: AlertCircle,
       trend: isAdmin ? "Action needed" : "Submitted",
-      color:
-        "from-yellow-50 to-yellow-100/50 dark:from-yellow-950/30 dark:to-yellow-900/20",
-      iconColor: "text-yellow-600",
+      color: "from-accent/50 to-accent/30",
+      iconColor: "text-accent-foreground",
     },
     {
       title: isAdmin ? "Team on Leave" : "Approved Leaves",
@@ -238,9 +104,8 @@ export function DashboardPage() {
       subtext: isAdmin ? "Currently on leave" : "Already consumed",
       icon: CheckCircle2,
       trend: isAdmin ? "Today" : `${stats.utilizationPercent}% utilized`,
-      color:
-        "from-green-50 to-green-100/50 dark:from-green-950/30 dark:to-green-900/20",
-      iconColor: "text-green-600",
+      color: "from-primary/5 to-primary/10",
+      iconColor: "text-primary",
     },
     {
       title: "Upcoming Leave",
@@ -249,9 +114,8 @@ export function DashboardPage() {
       subtext: stats.upcoming ? "Next scheduled" : "No upcoming leaves",
       icon: Clock,
       trend: stats.upcoming ? stats.upcoming.dates : "Plan your leave",
-      color:
-        "from-purple-50 to-purple-100/50 dark:from-purple-950/30 dark:to-purple-900/20",
-      iconColor: "text-purple-600",
+      color: "from-secondary to-secondary/80",
+      iconColor: "text-secondary-foreground",
     },
   ];
 
@@ -272,232 +136,48 @@ export function DashboardPage() {
 
         {/* Stats Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-          {statCards.map((stat, idx) => {
-            const Icon = stat.icon;
-            return (
-              <Card
-                key={idx}
-                className={cn(
-                  "border-none shadow-md hover:shadow-lg transition-shadow bg-gradient-to-br",
-                  stat.color
-                )}
-              >
-                <CardContent className="p-4">
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <p className="text-xs font-medium text-muted-foreground">
-                        {stat.title}
-                      </p>
-                      <Icon className={cn("w-4 h-4", stat.iconColor)} />
-                    </div>
-                    <div className="space-y-1">
-                      <div className="flex items-baseline gap-1.5">
-                        <p className="text-3xl font-bold">{stat.value}</p>
-                        {stat.unit && (
-                          <p className="text-sm text-muted-foreground">
-                            {stat.unit}
-                          </p>
-                        )}
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        {stat.subtext}
-                      </p>
-                      <p className="text-xs font-medium flex items-center gap-1">
-                        <TrendingUp className="w-3 h-3" />
-                        {stat.trend}
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
+          {statCards.map((stat, idx) => (
+            <DashboardStatCard {...stat} key={idx} />
+          ))}
         </div>
 
         {/* Holiday Slider */}
-        {upcomingHolidays.length > 0 && (
-          <Card className="border-none shadow-xl bg-gradient-to-r from-primary/5 to-primary/10">
-            <CardContent className="p-5">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-semibold">Upcoming Holidays</h3>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 text-xs gap-1"
-                  onClick={() => setHolidayDialogOpen(true)}
-                >
-                  <Eye className="w-3 h-3" />
-                  View All
-                </Button>
-              </div>
-
-              {currentHoliday && (
-                <div className="relative">
-                  <div className="flex items-center justify-between">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 shrink-0"
-                      onClick={handlePrevHoliday}
-                      disabled={upcomingHolidays.length <= 1}
-                    >
-                      <ChevronLeft className="w-4 h-4" />
-                    </Button>
-
-                    <div className="flex-1 text-center space-y-1">
-                      <div className="flex items-center justify-center gap-2">
-                        <Calendar className="w-4 h-4 text-primary" />
-                        <h4 className="font-bold text-lg">
-                          {currentHoliday.name}
-                        </h4>
-                      </div>
-                      <p className="text-sm text-muted-foreground">
-                        {format(
-                          new Date(currentHoliday.date),
-                          "EEEE, MMMM dd, yyyy"
-                        )}
-                      </p>
-                      <div className="flex items-center justify-center gap-2 mt-2">
-                        <Badge
-                          className={cn(
-                            "text-xs border",
-                            currentHoliday.type === "PUBLIC"
-                              ? "bg-green-50 text-green-700 border-green-200 dark:bg-green-950/30"
-                              : "bg-yellow-50 text-yellow-700 border-yellow-200 dark:bg-yellow-950/30"
-                          )}
-                        >
-                          {currentHoliday.type}
-                        </Badge>
-                        {currentHoliday.recurring && (
-                          <Badge variant="outline" className="text-xs">
-                            Recurring
-                          </Badge>
-                        )}
-                      </div>
-                      <p className="text-xs text-muted-foreground mt-2">
-                        {differenceInDays(
-                          new Date(currentHoliday.date),
-                          new Date()
-                        )}{" "}
-                        days away
-                      </p>
-                    </div>
-
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 shrink-0"
-                      onClick={handleNextHoliday}
-                      disabled={upcomingHolidays.length <= 1}
-                    >
-                      <ChevronRight className="w-4 h-4" />
-                    </Button>
-                  </div>
-
-                  {/* Pagination Dots */}
-                  {upcomingHolidays.length > 1 && (
-                    <div className="flex justify-center gap-1.5 mt-3">
-                      {upcomingHolidays.map((_, idx) => (
-                        <button
-                          key={idx}
-                          onClick={() => setCurrentHolidayIndex(idx)}
-                          className={cn(
-                            "h-1.5 rounded-full transition-all",
-                            idx === currentHolidayIndex
-                              ? "w-6 bg-primary"
-                              : "w-1.5 bg-muted-foreground/30"
-                          )}
-                        />
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+        {!!upcomingHolidays.length && (
+          <DashboardHolidaySlider
+            holidays={upcomingHolidays}
+            index={currentHolidayIndex}
+            setIndex={setCurrentHolidayIndex}
+            onPrev={() =>
+              setCurrentHolidayIndex((prev) =>
+                prev > 0 ? prev - 1 : upcomingHolidays.length - 1
+              )
+            }
+            onNext={() =>
+              setCurrentHolidayIndex((prev) =>
+                prev < upcomingHolidays.length - 1 ? prev + 1 : 0
+              )
+            }
+            onViewAll={() => setHolidayDialogOpen(true)}
+          />
         )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Pending Approvals - Admin Only */}
-          {isAdmin && pendingRequests.length > 0 && (
+          {/* Pending Approvals */}
+          {isAdmin && !!pendingRequests.length && (
             <div className="lg:col-span-2">
-              <Card className="border-none shadow-xl">
-                <CardHeader className="border-b bg-muted/30">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <CardTitle className="text-lg font-semibold">
-                        Pending Approvals
-                      </CardTitle>
-                      <CardDescription className="text-xs mt-0.5">
-                        Requests awaiting your review
-                      </CardDescription>
-                    </div>
-                    <Badge className="bg-yellow-50 text-yellow-700 border-yellow-200 text-xs font-bold">
-                      {pendingRequests.length}
-                    </Badge>
-                  </div>
-                </CardHeader>
-                <CardContent className="p-5">
-                  <div className="space-y-3">
-                    {pendingRequests.map((req) => (
-                      <div
-                        key={req.id}
-                        className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 border rounded-lg hover:bg-muted/30 transition-colors"
-                      >
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            <p className="font-semibold text-sm">
-                              {req.employee}
-                            </p>
-                            <Badge variant="outline" className="text-xs">
-                              {req.type}
-                            </Badge>
-                          </div>
-                          <p className="text-xs text-muted-foreground">
-                            {req.dates}
-                          </p>
-                          <p className="text-xs text-muted-foreground mt-1 line-clamp-1">
-                            Reason: {req.reason}
-                          </p>
-                        </div>
-                        <div className="flex gap-2">
-                          <Button
-                            size="sm"
-                            onClick={() =>
-                              setActionLeave({
-                                leave: req.leave,
-                                action: "APPROVED",
-                              })
-                            }
-                            className="flex-1 sm:flex-none h-8 text-xs text-green-700 bg-green-50 hover:bg-green-100 dark:bg-green-950/30"
-                          >
-                            <CheckCircle2 className="w-3 h-3 mr-1" />
-                            Approve
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() =>
-                              setActionLeave({
-                                leave: req.leave,
-                                action: "REJECTED",
-                              })
-                            }
-                            className="flex-1 sm:flex-none h-8 text-xs text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30"
-                          >
-                            <AlertCircle className="w-3 h-3 mr-1" />
-                            Reject
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
+              <DashboardPendingApprovals
+                requests={pendingRequests}
+                onApprove={(leave) =>
+                  setActionLeave({ leave, action: "APPROVED" })
+                }
+                onReject={(leave) =>
+                  setActionLeave({ leave, action: "REJECTED" })
+                }
+              />
             </div>
           )}
 
-          {/* Team Overview - Admin Only */}
+          {/* Team Overview */}
           {isAdmin && teamStats && (
             <Card className="border-none shadow-xl">
               <CardHeader className="border-b bg-muted/30">
@@ -533,7 +213,7 @@ export function DashboardPage() {
                   </div>
                   <div className="w-full bg-muted rounded-full h-2">
                     <div
-                      className="bg-green-600 rounded-full h-2"
+                      className="bg-primary rounded-full h-2"
                       style={{
                         width: `${
                           (teamStats.onLeaveToday / teamStats.totalEmployees) *
@@ -554,7 +234,7 @@ export function DashboardPage() {
                   </div>
                   <div className="w-full bg-muted rounded-full h-2">
                     <div
-                      className="bg-yellow-600 rounded-full h-2"
+                      className="bg-accent rounded-full h-2"
                       style={{
                         width: `${
                           (teamStats.pendingCount / teamStats.totalEmployees) *
@@ -621,7 +301,7 @@ export function DashboardPage() {
                         </td>
                         <td className="p-3 font-semibold">{leave.days}d</td>
                         <td className="p-3">
-                          <Badge className="bg-green-50 text-green-700 border-green-200 text-xs">
+                          <Badge className="bg-primary/10 text-primary border-primary/20 text-xs">
                             Approved
                           </Badge>
                         </td>
@@ -639,12 +319,11 @@ export function DashboardPage() {
           <ApproveRejectDialog
             open={!!actionLeave}
             onOpenChange={(o) => !o && setActionLeave(null)}
-            leave={actionLeave.leave}
+            leave={actionLeave?.leave}
             action={actionLeave.action}
             onSuccess={() => setActionLeave(null)}
           />
         )}
-
         <ViewHolidaysDialog
           open={holidayDialogOpen}
           onOpenChange={setHolidayDialogOpen}

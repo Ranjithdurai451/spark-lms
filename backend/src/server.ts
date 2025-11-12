@@ -9,7 +9,7 @@ import { organizationRouter } from "./routes/organization.route";
 import { main } from "./lib/test";
 import { holidayRouter } from "./routes/holiday.route";
 import { leavePolicyRouter } from "./routes/leave-policy.route";
-import { leaveRouter } from "./routes/leave.route";
+import { leaveRouter } from "./routes/leaves.route";
 import { leaveBalanceRouter } from "./routes/leave-balance.route";
 dotenv.config();
 const PORT = process.env.PORT || 3000;

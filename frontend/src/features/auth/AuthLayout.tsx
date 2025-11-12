@@ -1,12 +1,8 @@
 import { Outlet } from "react-router";
-import ThemeToggle from "../root/ThemeToggle";
 
 const Layout = () => {
   return (
     <div className="w-dvw h-dvh flex justify-center items-center relative flex-col">
-      {/* <div className="w-full absolute top-0 p-5 flex justify-end ">
-        <ThemeToggle />
-      </div> */}
       <Outlet></Outlet>
 
       {/*  Diagonal Cross Top Left Fade Grid Background */}
