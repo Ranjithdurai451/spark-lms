@@ -33,7 +33,16 @@ import type { HOLIDAY_TYPE } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { queryClient } from "@/features/root/Providers";
 
-export function AddHolidayDialog({ open, onOpenChange, onSuccess }: any) {
+interface AddHolidayDialogProps {
+  open: boolean;
+  onOpenChange: (current: boolean) => void;
+  onSuccess: () => void;
+}
+export function AddHolidayDialog({
+  open,
+  onOpenChange,
+  onSuccess,
+}: AddHolidayDialogProps) {
   const user = useAppSelector((s) => s.auth.user);
   const orgId = user?.organization?.id ?? "";
 

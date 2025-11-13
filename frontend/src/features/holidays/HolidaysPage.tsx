@@ -8,17 +8,21 @@ import { Plus, Search, X, CalendarDays } from "lucide-react";
 
 import { AddHolidayDialog } from "./components/AddHolidayDialog";
 import { EditHolidayDialog } from "./components/EditHolidayDialog";
-import { DeleteConfirmDialog } from "./components/DeleteConfirmDialog";
 import { HolidayCard } from "./components/HolidayCard";
 import { HolidayTableRow } from "./components/HolidayTableRow";
 import { HolidayStats } from "./components/HolidayStats";
-import { useGetHolidays, useHolidaysFilters } from "./useHolidays";
+import {
+  useDeleteHoliday,
+  useGetHolidays,
+  useHolidaysFilters,
+} from "./useHolidays";
 import { queryClient } from "../root/Providers";
 import { HolidaySkeleton } from "./components/HolidaysSkeleton";
 import ErrorPage from "../common/components/ErrorPage";
 import { PageHeader } from "../common/components/PageHeader";
 import { ViewModeToggle } from "../common/components/ViewModeToggle";
 import { useAuth } from "../auth/useAuth";
+import { DeleteConfirmDialog } from "../common/components/DeleteConfirmDialog";
 
 export function HolidaysPage() {
   const [activeTab, setActiveTab] = useState("all");
@@ -42,7 +46,7 @@ export function HolidaysPage() {
   );
 
   const canManage = hasAccess(["ADMIN", "HR"]);
-
+  const { mutate: deleteHoliday } = useDeleteHoliday();
   const handleRefetch = () => {
     queryClient.invalidateQueries(["holidays", orgId] as any);
   };
@@ -243,12 +247,24 @@ export function HolidaysPage() {
             onSuccess={handleRefetch}
           />
         )}
+
         {deletingId && (
           <DeleteConfirmDialog
             open={!!deletingId}
             onOpenChange={(o) => !o && setDeletingId(null)}
-            holidayId={deletingId}
-            onSuccess={handleRefetch}
+            title="Delete Holiday"
+            description="Are you sure you want to delete this holiday? This action cannot be undone."
+            onConfirm={() =>
+              new Promise((resolve, reject) => {
+                deleteHoliday(deletingId, {
+                  onSuccess: () => {
+                    handleRefetch();
+                    resolve();
+                  },
+                  onError: (err) => reject(err),
+                });
+              })
+            }
           />
         )}
       </div>

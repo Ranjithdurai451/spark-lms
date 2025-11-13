@@ -6,12 +6,12 @@ import { Plus, Users2, Search, X } from "lucide-react";
 import { EditMemberDialog } from "./components/EditMemberDialog";
 import { InviteDialog } from "./components/InviteDialog";
 import {
+  useDeleteUser,
   useGetOrganizationById,
   useOrganizationMembers,
 } from "./useOrganization";
 import { OrganizationSkeleton } from "./components/OrganizationSkeleton";
 import { queryClient } from "../root/Providers";
-import { DeleteConfirmDialog } from "./components/delete-confirm-dialog";
 import ErrorPage from "../common/components/ErrorPage";
 import { PageHeader } from "../common/components/PageHeader";
 import OrganizationPageStats from "./components/OrganizationPageStats";
@@ -20,6 +20,7 @@ import { MemberCard } from "./components/MemberCard";
 import { MemberTableRow } from "./components/MemberTableRow";
 import { getRoleColor } from "./utils";
 import { useAuth } from "../auth/useAuth";
+import { DeleteConfirmDialog } from "../common/components/DeleteConfirmDialog";
 
 export function OrganizationPage() {
   const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
@@ -42,12 +43,13 @@ export function OrganizationPage() {
   );
   const canManage = hasAccess(["ADMIN", "HR"]);
 
-  const handleRefetchAfterChange = () => {
+  const handleRefetch = () => {
     if (org?.id) {
       queryClient.invalidateQueries(["organization", org.id] as any);
     }
   };
 
+  const { mutate: deleteUser } = useDeleteUser();
   if (isLoading) return <OrganizationSkeleton />;
 
   if (isError)
@@ -235,7 +237,6 @@ export function OrganizationPage() {
                         member={member}
                         isCurrent={isCurrentUser(member.id)}
                         canManage={canManage && !isCurrentUser(member.id)}
-                        canManageMembers={canManage}
                         getRoleColor={getRoleColor}
                         onEdit={() => setEditingMember(member)}
                         onDelete={() => setDeletingId(member.id)}
@@ -262,7 +263,7 @@ export function OrganizationPage() {
             open={!!editingMember}
             onOpenChange={(open: boolean) => {
               if (!open) setEditingMember(null);
-              handleRefetchAfterChange();
+              handleRefetch();
             }}
             member={editingMember}
             members={members}
@@ -272,13 +273,21 @@ export function OrganizationPage() {
         {deletingId && (
           <DeleteConfirmDialog
             open={!!deletingId}
-            onOpenChange={(open: boolean) => {
-              if (!open) setDeletingId(null);
-              handleRefetchAfterChange();
-            }}
-            userId={deletingId}
-            username={
+            onOpenChange={(open) => !open && setDeletingId(null)}
+            title="Delete Member"
+            description={`Are you sure you want to delete ${
               members.find((m) => m.id === deletingId)?.username || "this user"
+            }? This action cannot be undone.`}
+            onConfirm={() =>
+              new Promise((resolve, reject) => {
+                deleteUser(deletingId, {
+                  onSuccess: () => {
+                    handleRefetch();
+                    resolve();
+                  },
+                  onError: (err) => reject(err),
+                });
+              })
             }
           />
         )}

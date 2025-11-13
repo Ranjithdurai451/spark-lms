@@ -15,6 +15,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle, Loader2, Edit2 } from "lucide-react";
 import { useUpdateLeavePolicy } from "../useLeavePolicy";
 import { queryClient } from "@/features/root/Providers";
+import type { LeavePolicy } from "../leavePolicyService";
 
 export function EditPolicyDialog({
   open,
@@ -23,7 +24,7 @@ export function EditPolicyDialog({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  policy: any;
+  policy: LeavePolicy;
 }) {
   const [form, setForm] = useState(policy);
   const [error, setError] = useState<string | null>(null);

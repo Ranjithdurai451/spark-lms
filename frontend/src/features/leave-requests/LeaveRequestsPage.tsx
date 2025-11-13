@@ -1,25 +1,27 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RefreshCcw, Calendar } from "lucide-react";
 
-import {
-  ViewLeaveDialog,
-  type LeaveRequest,
-} from "./components/ViewLeaveDialog";
+import { ViewLeaveDialog } from "./components/ViewLeaveDialog";
 import { ApproveRejectDialog } from "./components/ApproveRejectDialog";
-import { DeleteLeaveDialog } from "./components/DeleteLeaveDialog";
 import { LeaveRequestCard } from "./components/LeaveRequestCard";
 import { LeaveRequestTableRow } from "./components/LeaveRequestTableRow";
 import { LeaveRequestStats } from "./components/LeaveRequestStats";
-import { useGetAllLeaves, useLeaveFilters } from "./useLeaveRequests";
+import {
+  useDeleteLeave,
+  useGetAllLeaves,
+  useLeaveFilters,
+} from "./useLeaveRequests";
 import { queryClient } from "../root/Providers";
 import { LeaveSkeleton } from "../my-leaves/components/LeaveSkeleton";
 import { PageHeader } from "../common/components/PageHeader";
 import { ViewModeToggle } from "../common/components/ViewModeToggle";
 import ErrorPage from "../common/components/ErrorPage";
 import { useAuth } from "../auth/useAuth";
+import type { LeaveRequest } from "./LeaveRequestsService";
+import { DeleteConfirmDialog } from "../common/components/DeleteConfirmDialog";
 
 export function LeaveRequestsPage() {
   const [activeTab, setActiveTab] = useState("all");
@@ -43,15 +45,12 @@ export function LeaveRequestsPage() {
   const handleRefetch = () => {
     queryClient.invalidateQueries(["leave-requests"] as any);
   };
-
+  const { mutate: deleteLeave } = useDeleteLeave();
   if (isLoading) return <LeaveSkeleton />;
   if (isError)
     return (
       <ErrorPage message="Failed to load leave requests" refetch={refetch} />
     );
-  useEffect(() => {
-    console.log("action leave", actionLeave);
-  }, [actionLeave]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20">
@@ -214,11 +213,22 @@ export function LeaveRequestsPage() {
         )}
 
         {deletingId && (
-          <DeleteLeaveDialog
+          <DeleteConfirmDialog
             open={!!deletingId}
             onOpenChange={(o) => !o && setDeletingId(null)}
-            leaveId={deletingId}
-            onSuccess={handleRefetch}
+            title="Delete Leave Request"
+            description="Are you sure you want to delete this leave request? This action cannot be undone. If the leave was approved, the balance will be restored."
+            onConfirm={() =>
+              new Promise((resolve, reject) => {
+                deleteLeave(deletingId, {
+                  onSuccess: () => {
+                    handleRefetch();
+                    resolve();
+                  },
+                  onError: (err) => reject(err),
+                });
+              })
+            }
           />
         )}
       </div>

@@ -11,10 +11,10 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
-import type { User } from "@/lib/types";
+import type { OrganizationMember } from "@/lib/types";
 
 interface MemberCardProps {
-  member: Pick<User, "id" | "role" | "email" | "username" | "manager">;
+  member: OrganizationMember;
   isCurrent: boolean;
   canManage: boolean;
   getRoleColor: (role: string) => string;

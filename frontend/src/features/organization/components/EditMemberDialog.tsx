@@ -21,11 +21,23 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { User2, AlertCircle, Loader2 } from "lucide-react";
 import { useUpdateUser } from "../useOrganization";
 import { queryClient } from "@/features/root/Providers";
+import type { OrganizationMember, Role } from "@/lib/types";
+interface EditMemberDialogProps {
+  open: boolean;
+  onOpenChange: (current: boolean) => void;
+  members: OrganizationMember[];
+  member: OrganizationMember;
+}
 
-export function EditMemberDialog({ member, open, onOpenChange, members }: any) {
+export function EditMemberDialog({
+  member,
+  open,
+  onOpenChange,
+  members,
+}: EditMemberDialogProps) {
   const [formData, setFormData] = useState({
     ...member,
-    managerId: member.managerId || "none", // Convert null to "none"
+    managerId: member?.manager?.id || "none",
   });
   const [error, setError] = useState<string | null>(null);
 
@@ -34,11 +46,10 @@ export function EditMemberDialog({ member, open, onOpenChange, members }: any) {
   useEffect(() => {
     setFormData({
       ...member,
-      managerId: member.managerId || "none",
+      managerId: member?.manager?.id || "none",
     });
     setError(null);
   }, [member]);
-
   const handleSubmit = () => {
     if (!formData.username) {
       setError("Name is required.");
@@ -109,7 +120,9 @@ export function EditMemberDialog({ member, open, onOpenChange, members }: any) {
             </Label>
             <Select
               value={formData.role}
-              onValueChange={(v) => setFormData({ ...formData, role: v })}
+              onValueChange={(v) =>
+                setFormData({ ...formData, role: v as Role })
+              }
             >
               <SelectTrigger className="h-9">
                 <SelectValue placeholder="Select role" />
@@ -138,8 +151,8 @@ export function EditMemberDialog({ member, open, onOpenChange, members }: any) {
               <SelectContent>
                 <SelectItem value="none">None</SelectItem>
                 {members
-                  .filter((m: any) => m.id !== formData.id)
-                  .map((m: any) => (
+                  .filter((m) => m.id !== formData.id)
+                  .map((m) => (
                     <SelectItem key={m.id} value={m.id}>
                       {m.username} ({m.role})
                     </SelectItem>

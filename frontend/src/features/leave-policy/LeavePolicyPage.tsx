@@ -3,20 +3,19 @@ import { useState, useMemo } from "react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Plus, FileText } from "lucide-react";
-
 import { AddPolicyDialog } from "./components/AddPolicyDialog";
 import { EditPolicyDialog } from "./components/EditPolicyDialog";
-import { DeletePolicyDialog } from "./components/DeletePolicyDialog";
 import { PolicyCard } from "./components/PolicyCard";
 import { PolicyTableRow } from "./components/PolicyTableRow";
 import { PolicyStats } from "./components/PolicyStats";
-import { useGetLeavePolicies } from "./useLeavePolicy";
+import { useDeleteLeavePolicy, useGetLeavePolicies } from "./useLeavePolicy";
 import { queryClient } from "../root/Providers";
 import { LeavePolicySkeleton } from "./components/LeavePolicySkeleton";
 import ErrorPage from "../common/components/ErrorPage";
 import { PageHeader } from "../common/components/PageHeader";
 import { ViewModeToggle } from "../common/components/ViewModeToggle";
 import { useAuth } from "../auth/useAuth";
+import { DeleteConfirmDialog } from "../common/components/DeleteConfirmDialog";
 
 export function LeavePolicyPage() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -48,9 +47,10 @@ export function LeavePolicyPage() {
 
   const canManage = hasAccess(["ADMIN", "HR"]);
 
-  const handleRefetchAfterChange = () => {
+  const handleRefetch = () => {
     queryClient.invalidateQueries(["leave-policies", orgId] as any);
   };
+  const { mutate: deletePolicy } = useDeleteLeavePolicy();
 
   if (isLoading) return <LeavePolicySkeleton />;
   if (isError)
@@ -180,7 +180,7 @@ export function LeavePolicyPage() {
           <AddPolicyDialog
             open={isAddDialogOpen}
             onOpenChange={setIsAddDialogOpen}
-            onSuccess={handleRefetchAfterChange}
+            onSuccess={handleRefetch}
           />
         )}
 
@@ -189,20 +189,32 @@ export function LeavePolicyPage() {
             open={!!editingPolicy}
             onOpenChange={(open) => {
               if (!open) setEditingPolicy(null);
-              handleRefetchAfterChange();
+              handleRefetch();
             }}
             policy={editingPolicy}
           />
         )}
 
         {deletingPolicy && (
-          <DeletePolicyDialog
+          <DeleteConfirmDialog
             open={!!deletingPolicy}
             onOpenChange={(open) => {
               if (!open) setDeletingPolicy(null);
-              handleRefetchAfterChange();
+              handleRefetch();
             }}
-            policy={deletingPolicy}
+            title="Delete Policy"
+            description={`Are you sure you want to delete ${deletingPolicy.name}? This action cannot be undone.`}
+            onConfirm={() =>
+              new Promise((resolve, reject) => {
+                deletePolicy(deletingPolicy.id, {
+                  onSuccess: () => {
+                    handleRefetch();
+                    resolve();
+                  },
+                  onError: (err) => reject(err),
+                });
+              })
+            }
           />
         )}
       </div>

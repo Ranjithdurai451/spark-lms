@@ -16,9 +16,10 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import type { LeavePolicy } from "../leavePolicyService";
 
 interface PolicyCardProps {
-  policy: any;
+  policy: LeavePolicy;
   canManage: boolean;
   onEdit: () => void;
   onDelete: () => void;

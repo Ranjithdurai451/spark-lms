@@ -21,9 +21,17 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { MailPlus, AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
 import { useInviteMember } from "../useOrganization";
 import { queryClient } from "@/features/root/Providers";
-import type { Role } from "@/lib/types";
-
-export function InviteDialog({ open, onOpenChange, members }: any) {
+import type { OrganizationMember, Role } from "@/lib/types";
+interface InviteDialogProps {
+  open: boolean;
+  onOpenChange: (current: boolean) => void;
+  members: OrganizationMember[];
+}
+export function InviteDialog({
+  open,
+  onOpenChange,
+  members,
+}: InviteDialogProps) {
   const [formData, setFormData] = useState({
     email: "",
     role: "EMPLOYEE",

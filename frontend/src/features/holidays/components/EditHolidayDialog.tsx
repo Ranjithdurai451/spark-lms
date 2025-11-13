@@ -31,9 +31,10 @@ import { cn } from "@/lib/utils";
 import { useUpdateHoliday } from "../useHolidays";
 import type { HOLIDAY_TYPE } from "@/lib/types";
 import { queryClient } from "@/features/root/Providers";
+import type { Holiday } from "../holidayService";
 
 interface EditHolidayDialogProps {
-  holiday: any;
+  holiday: Holiday;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess: () => void;

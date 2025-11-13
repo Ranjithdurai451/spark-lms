@@ -5,9 +5,10 @@ import { Calendar, Ban } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format, formatDistanceToNow } from "date-fns";
 import { getStatusColor, getStatusIcon } from "@/features/leave-requests/utils";
+import type { Leave } from "../MyleavesService";
 
 interface MyLeaveCardProps {
-  leave: any;
+  leave: Leave;
   onView: () => void;
   onCancel: () => void;
 }

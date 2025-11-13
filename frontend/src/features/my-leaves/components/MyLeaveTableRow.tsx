@@ -11,9 +11,10 @@ import {
 import { cn } from "@/lib/utils";
 import { format, formatDistanceToNow } from "date-fns";
 import { getStatusColor, getStatusIcon } from "@/features/leave-requests/utils";
+import type { Leave } from "../MyleavesService";
 
 interface MyLeaveTableRowProps {
-  leave: any;
+  leave: Leave;
   onView: () => void;
   onCancel: () => void;
 }

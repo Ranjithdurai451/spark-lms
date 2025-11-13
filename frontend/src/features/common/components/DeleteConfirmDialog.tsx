@@ -1,4 +1,4 @@
-// features/holidays/components/DeleteConfirmDialog.tsx
+// components/common/DeleteConfirmDialog.tsx
 import { useState } from "react";
 import {
   AlertDialog,
@@ -12,48 +12,49 @@ import {
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle, Loader2 } from "lucide-react";
-import { useDeleteHoliday } from "../useHolidays";
-import { queryClient } from "@/features/root/Providers";
 
 interface DeleteConfirmDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  holidayId: string;
-  onSuccess: () => void;
+  title?: string;
+  description: string;
+  onConfirm: () => Promise<void> | void;
+  isLoading?: boolean;
 }
 
 export function DeleteConfirmDialog({
   open,
   onOpenChange,
-  holidayId,
-  onSuccess,
+  title = "Delete Confirmation",
+  description,
+  onConfirm,
+  isLoading = false,
 }: DeleteConfirmDialogProps) {
-  const { mutate: deleteHoliday, isPending } = useDeleteHoliday();
   const [error, setError] = useState<string | null>(null);
+  const [pending, setPending] = useState(false);
 
-  const handleDelete = (e: React.MouseEvent) => {
-    e.preventDefault(); // Prevent default dialog close behavior
+  const handleConfirm = async (e: React.MouseEvent) => {
+    e.preventDefault();
     setError(null);
+    setPending(true);
 
-    deleteHoliday(holidayId, {
-      onSuccess: () => {
-        queryClient.invalidateQueries(["holidays"] as any);
-
-        onSuccess();
-        onOpenChange(false);
-        setError(null);
-      },
-      onError: (err: any) => {
-        setError(
-          err.response?.data?.message ||
-            "Failed to delete holiday. Please try again."
-        );
-      },
-    });
+    try {
+      await onConfirm();
+      onOpenChange(false);
+      setError(null);
+    } catch (err: any) {
+      setError(
+        err.response?.data?.message ||
+          err.message ||
+          "Failed to delete. Please try again."
+      );
+    } finally {
+      setPending(false);
+    }
   };
 
   const handleOpenChange = (open: boolean) => {
-    if (!isPending) {
+    if (!pending && !isLoading) {
       onOpenChange(open);
       if (!open) {
         setError(null);
@@ -61,18 +62,16 @@ export function DeleteConfirmDialog({
     }
   };
 
+  const loading = pending || isLoading;
+
   return (
     <AlertDialog open={open} onOpenChange={handleOpenChange}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Delete Holiday</AlertDialogTitle>
-          <AlertDialogDescription>
-            Are you sure you want to delete this holiday? This action cannot be
-            undone.
-          </AlertDialogDescription>
+          <AlertDialogTitle>{title}</AlertDialogTitle>
+          <AlertDialogDescription>{description}</AlertDialogDescription>
         </AlertDialogHeader>
 
-        {/* Error Message */}
         {error && (
           <Alert variant="destructive" className="animate-in fade-in-50">
             <AlertCircle className="h-4 w-4" />
@@ -81,15 +80,14 @@ export function DeleteConfirmDialog({
         )}
 
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={isPending}>Cancel</AlertDialogCancel>
-          {/* Use Button instead of AlertDialogAction for proper loading control */}
+          <AlertDialogCancel disabled={loading}>Cancel</AlertDialogCancel>
           <Button
-            onClick={handleDelete}
-            disabled={isPending}
+            onClick={handleConfirm}
+            disabled={loading}
             className="bg-destructive hover:bg-destructive/90"
           >
-            {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {isPending ? "Deleting..." : "Delete"}
+            {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {loading ? "Deleting..." : "Delete"}
           </Button>
         </AlertDialogFooter>
       </AlertDialogContent>

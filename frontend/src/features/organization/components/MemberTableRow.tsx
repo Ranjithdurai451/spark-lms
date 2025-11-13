@@ -9,13 +9,12 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
-import type { User } from "@/lib/types";
+import type { OrganizationMember } from "@/lib/types";
 
 interface MemberTableRowProps {
-  member: Pick<User, "id" | "role" | "email" | "username" | "manager">;
+  member: OrganizationMember;
   isCurrent: boolean;
   canManage: boolean;
-  canManageMembers: boolean;
   getRoleColor: (role: string) => string;
   onEdit: () => void;
   onDelete: () => void;
@@ -25,7 +24,6 @@ export function MemberTableRow({
   member,
   isCurrent,
   canManage,
-  canManageMembers,
   getRoleColor,
   onEdit,
   onDelete,
@@ -92,34 +90,32 @@ export function MemberTableRow({
       </td>
 
       {/* Actions */}
-      {canManageMembers && (
+      {canManage ? (
         <td className="p-4 text-right">
-          {canManage ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8">
-                  <MoreHorizontal className="w-4 h-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-40">
-                <DropdownMenuItem onClick={onEdit}>
-                  <Edit2 className="w-4 h-4 mr-2" />
-                  Edit
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  onClick={onDelete}
-                  className="text-destructive focus:text-destructive"
-                >
-                  <Trash2 className="w-4 h-4 mr-2" />
-                  Delete
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          ) : (
-            <span className="text-xs text-muted-foreground">-</span>
-          )}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8">
+                <MoreHorizontal className="w-4 h-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-40">
+              <DropdownMenuItem onClick={onEdit}>
+                <Edit2 className="w-4 h-4 mr-2" />
+                Edit
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={onDelete}
+                className="text-destructive focus:text-destructive"
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                Delete
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </td>
+      ) : (
+        <td></td>
       )}
     </tr>
   );

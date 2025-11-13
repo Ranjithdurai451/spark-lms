@@ -9,30 +9,8 @@ import { Badge } from "@/components/ui/badge";
 import { Calendar, Clock, User, Mail, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
-export type LeaveStatus = "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED";
-export interface LeaveRequest {
-  id: string;
-  type: string;
-  reason?: string;
-  startDate: string;
-  endDate: string;
-  days: number;
-  status: LeaveStatus;
-  employee: {
-    id: string;
-    username: string;
-    email: string;
-    role: string;
-  };
-  approver?: {
-    id: string;
-    username: string;
-    email: string;
-  };
-  organizationId: string;
-  createdAt: string;
-  updatedAt: string;
-}
+import type { LeaveRequest } from "../LeaveRequestsService";
+
 interface ViewLeaveDialogProps {
   leave: LeaveRequest | null;
   open: boolean;

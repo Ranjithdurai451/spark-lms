@@ -20,9 +20,10 @@ import {
 import { cn } from "@/lib/utils";
 import { format, formatDistanceToNow } from "date-fns";
 import { getStatusColor, getStatusIcon } from "../utils";
+import type { LeaveRequest } from "../LeaveRequestsService";
 
 interface LeaveRequestCardProps {
-  leave: any;
+  leave: LeaveRequest;
   canApprove: boolean;
   canDelete: boolean;
   onView: () => void;
