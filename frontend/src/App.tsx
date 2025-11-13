@@ -16,7 +16,6 @@ import { LeaveRequestsPage } from "./features/leave-requests/LeaveRequestsPage";
 import { DashboardPage } from "./features/dashboard/DashboardPage";
 import ProtectedRoute from "./features/root/ProctectedRoute";
 import { ProfilePage } from "./features/profile/ProfilePage";
-import { useEffect } from "react";
 
 function App() {
   const router = createBrowserRouter([
