@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/button";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { useLogout } from "../auth/useAuth";
 import { useNavigate } from "react-router";
+import { queryClient } from "./Providers";
 
 export default function ProfileDropdown() {
   const user = useAppSelector((state) => state.auth.user);
@@ -35,8 +36,8 @@ export default function ProfileDropdown() {
     logout(undefined, {
       onSuccess: () => {
         dispatch.auth.clearUser();
-        localStorage.removeItem("user");
-        navigate("/login");
+        queryClient.clear();
+        navigate("/login", { replace: true });
       },
     });
   };

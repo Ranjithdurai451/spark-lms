@@ -28,12 +28,30 @@ export interface LeaveRequest {
   updatedAt: string;
 }
 
+export interface LeaveRequestStats {
+  pending: number;
+  approved: number;
+  rejected: number;
+  cancelled: number;
+}
+
 class LeaveRequestsService {
-  static async getAllLeaves(): Promise<ApiResponse<LeaveRequest[]>> {
-    const { data } = await api.get(`/leaves`);
+  static async getAllLeaves(
+    orgId: string
+  ): Promise<ApiResponse<LeaveRequest[]>> {
+    const { data } = await api.get(`/leaves`, {
+      params: { organizationId: orgId },
+    });
     return data;
   }
-
+  static async getAllLeaveStats(
+    orgId: string
+  ): Promise<ApiResponse<LeaveRequestStats>> {
+    const { data } = await api.get(`/leaves/stats`, {
+      params: { organizationId: orgId },
+    });
+    return data;
+  }
   static async updateLeaveStatus(
     id: string,
     status: "APPROVED" | "REJECTED"

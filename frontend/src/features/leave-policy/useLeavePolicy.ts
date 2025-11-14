@@ -3,29 +3,33 @@ import { useQuery } from "@tanstack/react-query";
 import { useApiMutation } from "@/lib/hooks";
 import type { AxiosError } from "axios";
 import type { ApiResponse } from "@/features/auth/authService";
-import LeavePolicyService, { type LeavePolicy } from "./leavePolicyService";
+import LeavePolicyService, {
+  type LeavePolicy,
+  type LeavePolicyStats,
+} from "./leavePolicyService";
 
-/* GET all leave policies */
+/* GET policies (paginated/filter logic if needed) */
 export const useGetLeavePolicies = (organizationId: string) =>
   useQuery<ApiResponse<LeavePolicy[]>, AxiosError<ApiResponse>>({
     queryKey: ["leave-policies", organizationId],
-    queryFn: async () => {
-      const res = await LeavePolicyService.getAll();
-      return res;
-    },
+    queryFn: () => LeavePolicyService.getAll(organizationId),
     enabled: !!organizationId,
   });
 
-/* CREATE */
+/* GET stats (stats endpoint) */
+export const useGetLeavePolicyStats = (organizationId: string) =>
+  useQuery<ApiResponse<LeavePolicyStats>, AxiosError<ApiResponse>>({
+    queryKey: ["leave-policy-stats", organizationId],
+    queryFn: () => LeavePolicyService.getStats(organizationId),
+    enabled: !!organizationId,
+  });
+
+/* CREATE/UPDATE/DELETE (unchanged from your impl) */
 export const useCreateLeavePolicy = () =>
   useApiMutation(LeavePolicyService.create);
-
-/* UPDATE */
 export const useUpdateLeavePolicy = () =>
   useApiMutation((payload: { id: string; data: Partial<LeavePolicy> }) =>
     LeavePolicyService.update(payload.id, payload.data)
   );
-
-/* DELETE */
 export const useDeleteLeavePolicy = () =>
   useApiMutation(LeavePolicyService.delete);

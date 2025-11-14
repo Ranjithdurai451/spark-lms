@@ -48,6 +48,34 @@ export const getAllLeaves = async (req: Request, res: Response) => {
     res.status(500).json({ message: "Failed to fetch leaves." });
   }
 };
+// GET /leaves/stats
+export const getAllLeaveStats = async (req: Request, res: Response) => {
+  try {
+    const orgId = req.user?.organization?.id;
+
+    // Prisma groupBy: One query, grouped count by status
+    const groups = await prisma.leave.groupBy({
+      by: ["status"],
+      where: { organizationId: orgId },
+      _count: { _all: true },
+    });
+    // Build stats object
+    const stats = {
+      pending: groups.find((g) => g.status === "PENDING")?._count._all ?? 0,
+      approved: groups.find((g) => g.status === "APPROVED")?._count._all ?? 0,
+      rejected: groups.find((g) => g.status === "REJECTED")?._count._all ?? 0,
+      cancelled: groups.find((g) => g.status === "CANCELLED")?._count._all ?? 0,
+    };
+
+    return res.status(200).json({
+      message: "Leave stats fetched successfully.",
+      data: stats,
+    });
+  } catch (error) {
+    console.error("getAllLeaveStats error:", error);
+    res.status(500).json({ message: "Failed to fetch stats." });
+  }
+};
 
 /* ──────────────── GET MY LEAVES (For Employee) ──────────────── */
 export const getMyLeaves = async (req: Request, res: Response) => {
@@ -72,6 +100,40 @@ export const getMyLeaves = async (req: Request, res: Response) => {
   } catch (error) {
     console.error("❌ getMyLeaves error:", error);
     res.status(500).json({ message: "Failed to fetch your leaves." });
+  }
+};
+
+export const getMyLeaveStats = async (req: Request, res: Response) => {
+  try {
+    const { id: userId } = req.user;
+    const orgId = req.user.organization.id;
+
+    // Use a single groupBy query to get all status counts
+    const groups = await prisma.leave.groupBy({
+      by: ["status"],
+      where: {
+        employeeId: userId,
+        organizationId: orgId,
+      },
+      _count: { _all: true },
+    });
+
+    const total = groups.reduce((sum, row) => sum + row._count._all, 0);
+
+    res.status(200).json({
+      message: "Your leave stats fetched successfully.",
+      data: {
+        total,
+        pending: groups.find((g) => g.status === "PENDING")?._count._all ?? 0,
+        approved: groups.find((g) => g.status === "APPROVED")?._count._all ?? 0,
+        rejected: groups.find((g) => g.status === "REJECTED")?._count._all ?? 0,
+        cancelled:
+          groups.find((g) => g.status === "CANCELLED")?._count._all ?? 0,
+      },
+    });
+  } catch (error) {
+    console.error("getMyLeaveStats error:", error);
+    res.status(500).json({ message: "Failed to fetch your leave stats." });
   }
 };
 

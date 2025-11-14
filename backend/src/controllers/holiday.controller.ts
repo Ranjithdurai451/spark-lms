@@ -3,25 +3,41 @@ import { prisma } from "../db";
 
 export const getHolidays = async (req: Request, res: Response) => {
   try {
-    // const { type, recurring } = req.query;
     const organizationId = req.user.organization.id;
-    const filters: any = { organizationId };
-    // if (type) filters.type = type;
-    // if (recurring !== undefined)
-    //   filters.recurring = recurring === "true" ? true : false;
-
     const holidays = await prisma.holiday.findMany({
-      where: filters,
+      where: { organizationId },
       orderBy: { date: "asc" },
     });
-
     res.status(200).json({
       message: "Holidays fetched successfully.",
       data: holidays,
     });
   } catch (error) {
-    console.error(" getHolidays error:", error);
+    console.error("getHolidays error:", error);
     res.status(500).json({ message: "Failed to fetch holidays." });
+  }
+};
+// GET /holidays/stats
+export const getHolidayStats = async (req: Request, res: Response) => {
+  try {
+    const organizationId = req.user.organization.id;
+    const groups = await prisma.holiday.groupBy({
+      by: ["type"],
+      where: { organizationId },
+      _count: { _all: true },
+    });
+    const total = groups.reduce((sum, row) => sum + row._count._all, 0);
+    res.status(200).json({
+      message: "Stats fetched successfully.",
+      data: {
+        total,
+        public: groups.find((g) => g.type === "PUBLIC")?._count._all ?? 0,
+        company: groups.find((g) => g.type === "COMPANY")?._count._all ?? 0,
+      },
+    });
+  } catch (error) {
+    console.error("getHolidayStats error:", error);
+    res.status(500).json({ message: "Failed to fetch stats." });
   }
 };
 

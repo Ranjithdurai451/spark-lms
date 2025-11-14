@@ -12,6 +12,7 @@ import { LeaveRequestStats } from "./components/LeaveRequestStats";
 import {
   useDeleteLeave,
   useGetAllLeaves,
+  useGetAllLeaveStats,
   useLeaveFilters,
 } from "./useLeaveRequests";
 import { queryClient } from "../root/Providers";
@@ -32,12 +33,19 @@ export function LeaveRequestsPage() {
     action: "APPROVED" | "REJECTED";
   } | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const { user, hasAccess } = useAuth();
 
-  const { hasAccess } = useAuth();
-  const { data, isLoading, isError, refetch, isFetching } = useGetAllLeaves();
+  const orgId = user?.organization?.id ?? "";
+
+  const { data, isLoading, isError, refetch, isFetching } =
+    useGetAllLeaves(orgId);
+  const { data: statsData, isLoading: statsLoading } =
+    useGetAllLeaveStats(orgId);
+
   const leaves = data?.data ?? [];
+  const stats = statsData?.data;
 
-  const { filteredLeaves, stats } = useLeaveFilters(leaves, activeTab);
+  const { filteredLeaves } = useLeaveFilters(leaves, activeTab);
 
   const canApprove = hasAccess(["ADMIN", "HR", "MANAGER"]);
   const canDelete = hasAccess(["ADMIN", "HR"]);
@@ -46,7 +54,7 @@ export function LeaveRequestsPage() {
     queryClient.invalidateQueries(["leave-requests"] as any);
   };
   const { mutate: deleteLeave } = useDeleteLeave();
-  if (isLoading) return <LeaveSkeleton />;
+  if (isLoading || statsLoading) return <LeaveSkeleton />;
   if (isError)
     return (
       <ErrorPage message="Failed to load leave requests" refetch={refetch} />

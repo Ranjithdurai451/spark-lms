@@ -2,9 +2,29 @@
 
 import { api } from "@/config/axios";
 import type { ApiResponse } from "@/features/auth/authService";
-import type { FullOrganization, Role } from "@/lib/types";
+import type {
+  FullOrganization,
+  OrganizationMember,
+  Role,
+  RoleStats,
+} from "@/lib/types";
 
 class OrganizationService {
+  static async getMembers(
+    organizationId: string
+  ): Promise<ApiResponse<OrganizationMember[]>> {
+    const { data } = await api.get(`/organizations/${organizationId}/members`);
+    return data;
+  }
+
+  static async getMemberStats(
+    organizationId: string
+  ): Promise<ApiResponse<RoleStats>> {
+    const { data } = await api.get(
+      `/organizations/${organizationId}/members/stats`
+    );
+    return data;
+  }
   /* ---------- Get Organization by ID ---------- */
   static async getOrganizationById(
     organizationId: string

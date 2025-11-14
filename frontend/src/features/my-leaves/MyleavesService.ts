@@ -27,6 +27,13 @@ export interface Leave {
   createdAt: string;
   updatedAt: string;
 }
+export interface MyLeaveStats {
+  total: number;
+  pending: number;
+  approved: number;
+  rejected: number;
+  cancelled: number;
+}
 
 export interface CreateLeaveInput {
   type: string;
@@ -60,7 +67,10 @@ class LeaveService {
     const { data } = await api.get(`/leaves/my`);
     return data;
   }
-
+  static async getMyLeaveStats(): Promise<ApiResponse<MyLeaveStats>> {
+    const { data } = await api.get(`/leaves/my/stats`);
+    return data;
+  }
   static async create(
     payload: CreateLeaveInput & { organizationId: string }
   ): Promise<ApiResponse<Leave>> {

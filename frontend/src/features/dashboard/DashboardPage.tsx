@@ -1,23 +1,12 @@
 import { useState } from "react";
 import { useAppSelector } from "@/lib/hooks";
-import {
-  useGetMyLeaves,
-  useGetMyLeaveBalances,
-} from "../my-leaves/useMyLeaves";
-import { useGetAllLeaves } from "../leave-requests/useLeaveRequests";
-import { useGetHolidays } from "../holidays/useHolidays";
-import { useGetOrganizationById } from "../organization/useOrganization";
 import { DashboardHolidaySlider } from "./components/DashboardHolidaySlider";
 import { DashboardPendingApprovals } from "./components/DashboardPendingApprovals";
 import { ApproveRejectDialog } from "../leave-requests/components/ApproveRejectDialog";
 import { ViewHolidaysDialog } from "./components/ViewHolidaysDialog";
 import { DashboardSkeleton } from "./components/DashboardSkeleton";
-import type { User, FullOrganization } from "@/lib/types";
 import { Calendar, AlertCircle, CheckCircle2, Clock } from "lucide-react";
-import type { Holiday } from "../holidays/holidayService";
-import type { Leave, LeaveBalance } from "../my-leaves/MyleavesService";
 import { DashboardStatCard } from "./components/DashboardStatsCard";
-import { useDashboardData } from "./useDashboardData";
 import {
   Card,
   CardContent,
@@ -26,69 +15,52 @@ import {
   CardDescription,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import type { User } from "@/lib/types";
+import { useDashboardStats } from "../profile/useProfile";
+import ErrorPage from "../common/components/ErrorPage";
 
 export function DashboardPage() {
   const user = useAppSelector((state) => state.auth.user) as User;
-  const { data: myLeavesData, isLoading: loadingMyLeaves } = useGetMyLeaves();
-  const { data: balancesData, isLoading: loadingBalances } =
-    useGetMyLeaveBalances();
-  const { data: allLeavesData, isLoading: loadingAllLeaves } =
-    useGetAllLeaves();
-  const { data: holidaysData, isLoading: loadingHolidays } = useGetHolidays(
-    user?.organization?.id ?? ""
-  );
-  const { data: orgData } = useGetOrganizationById(
-    user?.organization?.id ?? ""
-  );
+  const { data, isLoading, isError, refetch } = useDashboardStats();
 
-  const myLeaves = (myLeavesData?.data as Leave[]) || [];
-  const balances = (balancesData?.data as LeaveBalance[]) || [];
-  const allLeaves = (allLeavesData?.data as Leave[]) || [];
-  const holidays = (holidaysData?.data as Holiday[]) || [];
-  const organization = orgData?.data as FullOrganization;
+  const [actionLeave, setActionLeave] = useState<{
+    leave: any;
+    action: "APPROVED" | "REJECTED";
+  } | null>(null);
+  const [holidayDialogOpen, setHolidayDialogOpen] = useState(false);
+  const [currentHolidayIndex, setCurrentHolidayIndex] = useState(0);
+
+  if (isLoading) return <DashboardSkeleton />;
+  if (isError)
+    return <ErrorPage message="Failed to load your leaves" refetch={refetch} />;
+  if (!data || !data?.data?.stats)
+    return <div>No dashboard data available.</div>;
 
   const {
     isAdmin,
     stats,
-    pendingRequests,
-    recentApprovals,
     teamStats,
+    pendingApprovals,
+    recentApprovals,
     upcomingHolidays,
-    currentHolidayIndex,
-    setCurrentHolidayIndex,
-  } = useDashboardData(myLeaves, balances, allLeaves, holidays, organization);
-
-  const [actionLeave, setActionLeave] = useState<{
-    leave: Leave;
-    action: "APPROVED" | "REJECTED";
-  } | null>(null);
-
-  const [holidayDialogOpen, setHolidayDialogOpen] = useState(false);
-
-  const isLoading =
-    loadingMyLeaves ||
-    loadingBalances ||
-    (isAdmin && loadingAllLeaves) ||
-    loadingHolidays;
-
-  if (isLoading) return <DashboardSkeleton />;
+  } = data.data;
 
   const statCards = [
     {
       title: "Total Leave Balance",
-      value: stats.totalBalance.toString(),
+      value: (stats.totalBalance ?? 0).toString(),
       unit: "days",
-      subtext: `Of ${stats.totalAllocated} days`,
+      subtext: `Of ${stats.totalAllocated ?? 0} days`,
       icon: Calendar,
-      trend: `${stats.utilizationPercent}% utilized`,
+      trend: `${stats.utilizationPercent ?? 0}% utilized`,
       color: "from-primary/5 to-primary/10",
       iconColor: "text-primary",
     },
     {
       title: "Pending Approvals",
       value: isAdmin
-        ? pendingRequests.length.toString()
-        : stats.pending.toString(),
+        ? (pendingApprovals?.length ?? 0).toString()
+        : (stats.pending ?? 0).toString(),
       subtext: isAdmin ? "Awaiting your review" : "Awaiting response",
       icon: AlertCircle,
       trend: isAdmin ? "Action needed" : "Submitted",
@@ -98,22 +70,22 @@ export function DashboardPage() {
     {
       title: isAdmin ? "Team on Leave" : "Approved Leaves",
       value: isAdmin
-        ? teamStats?.onLeaveToday.toString() ?? "0"
-        : stats.approved.toString(),
+        ? (teamStats?.onLeaveToday ?? 0).toString()
+        : (stats.approved ?? 0).toString(),
       unit: isAdmin ? "members" : "days",
       subtext: isAdmin ? "Currently on leave" : "Already consumed",
       icon: CheckCircle2,
-      trend: isAdmin ? "Today" : `${stats.utilizationPercent}% utilized`,
+      trend: isAdmin ? "Today" : `${stats.utilizationPercent ?? 0}% utilized`,
       color: "from-primary/5 to-primary/10",
       iconColor: "text-primary",
     },
     {
       title: "Upcoming Leave",
-      value: stats.upcoming ? stats.upcoming.days.toString() : "0",
+      value: stats.upcoming?.days?.toString() ?? "0",
       unit: "days",
       subtext: stats.upcoming ? "Next scheduled" : "No upcoming leaves",
       icon: Clock,
-      trend: stats.upcoming ? stats.upcoming.dates : "Plan your leave",
+      trend: stats.upcoming?.dates || "Plan your leave",
       color: "from-secondary to-secondary/80",
       iconColor: "text-secondary-foreground",
     },
@@ -142,7 +114,7 @@ export function DashboardPage() {
         </div>
 
         {/* Holiday Slider */}
-        {!!upcomingHolidays.length && (
+        {upcomingHolidays.length > 0 && (
           <DashboardHolidaySlider
             holidays={upcomingHolidays}
             index={currentHolidayIndex}
@@ -163,10 +135,10 @@ export function DashboardPage() {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Pending Approvals */}
-          {isAdmin && !!pendingRequests.length && (
+          {isAdmin && pendingApprovals.length > 0 && (
             <div className="lg:col-span-2">
               <DashboardPendingApprovals
-                requests={pendingRequests}
+                requests={pendingApprovals}
                 onApprove={(leave) =>
                   setActionLeave({ leave, action: "APPROVED" })
                 }
@@ -178,7 +150,7 @@ export function DashboardPage() {
           )}
 
           {/* Team Overview */}
-          {isAdmin && teamStats && (
+          {isAdmin && !!teamStats && (
             <Card className="border-none shadow-xl">
               <CardHeader className="border-b bg-muted/30">
                 <CardTitle className="text-lg font-semibold">
@@ -216,8 +188,11 @@ export function DashboardPage() {
                       className="bg-primary rounded-full h-2"
                       style={{
                         width: `${
-                          (teamStats.onLeaveToday / teamStats.totalEmployees) *
-                          100
+                          teamStats.totalEmployees
+                            ? (teamStats.onLeaveToday /
+                                teamStats.totalEmployees) *
+                              100
+                            : 0
                         }%`,
                       }}
                     />
@@ -237,8 +212,11 @@ export function DashboardPage() {
                       className="bg-accent rounded-full h-2"
                       style={{
                         width: `${
-                          (teamStats.pendingCount / teamStats.totalEmployees) *
-                          100
+                          teamStats.totalEmployees
+                            ? (teamStats.pendingCount /
+                                teamStats.totalEmployees) *
+                              100
+                            : 0
                         }%`,
                       }}
                     />
@@ -327,7 +305,7 @@ export function DashboardPage() {
         <ViewHolidaysDialog
           open={holidayDialogOpen}
           onOpenChange={setHolidayDialogOpen}
-          holidays={holidays}
+          holidays={upcomingHolidays}
         />
       </div>
     </div>

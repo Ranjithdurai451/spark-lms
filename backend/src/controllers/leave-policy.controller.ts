@@ -2,25 +2,51 @@ import type { Request, Response } from "express";
 import { prisma } from "../db";
 import { createBalancesForPolicy } from "../lib/helpers/leave-balance.helper";
 
-/* ─────────────────── Get Leave Policies ─────────────────── */
 export const getLeavePolicies = async (req: Request, res: Response) => {
   try {
-    // const { organizationId } = req.params;
-    // console.log(organizationId);
     const organizationId = req.user.organization.id;
-    //
     const policies = await prisma.leavePolicy.findMany({
       where: { organizationId },
       orderBy: { createdAt: "desc" },
     });
-
     res.status(200).json({
       message: "Policies fetched successfully.",
       data: policies,
     });
   } catch (err) {
-    console.error(" getLeavePolicies error:", err);
+    console.error("getLeavePolicies error:", err);
     res.status(500).json({ message: "Failed to fetch policies." });
+  }
+};
+// GET /leave-policies/stats
+export const getLeavePolicyStats = async (req: Request, res: Response) => {
+  try {
+    const organizationId = req.user.organization.id;
+
+    // Group by active status if you ever want active/inactive breakdown
+    const [aggregates, activeAgg] = await Promise.all([
+      prisma.leavePolicy.aggregate({
+        where: { organizationId },
+        _count: { _all: true },
+        _sum: { maxDays: true },
+        _avg: { maxDays: true },
+      }),
+      prisma.leavePolicy.count({ where: { organizationId, active: true } }),
+    ]);
+    res.status(200).json({
+      message: "Stats fetched successfully.",
+      data: {
+        total: aggregates._count._all,
+        active: activeAgg,
+        totalDays: aggregates._sum.maxDays ?? 0,
+        avgDays: aggregates._avg.maxDays
+          ? Math.round(aggregates._avg.maxDays)
+          : 0,
+      },
+    });
+  } catch (err) {
+    console.error("getLeavePolicyStats error:", err);
+    res.status(500).json({ message: "Failed to fetch stats." });
   }
 };
 
