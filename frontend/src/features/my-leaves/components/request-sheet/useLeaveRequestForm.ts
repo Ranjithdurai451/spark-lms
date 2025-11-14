@@ -79,10 +79,16 @@ export function useLeaveRequestForm(
       return isSameDay(date, holidayDate);
     });
   };
-
   const isDateDisabled = (date: Date): boolean => {
     const today = startOfDay(new Date());
     const checkDate = startOfDay(date);
+
+    const year = today.getFullYear();
+    const yearStart = new Date(year, 0, 1); // Jan 1
+    const yearEnd = new Date(year, 11, 31); // Dec 31
+
+    // ❌ Disable dates outside current year
+    if (checkDate < yearStart || checkDate > yearEnd) return true;
 
     if (isWeekend(date)) return true;
     if (isBefore(checkDate, today)) return true;
