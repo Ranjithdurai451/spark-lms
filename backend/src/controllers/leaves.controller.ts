@@ -165,9 +165,9 @@ export const createLeave = async (req: Request, res: Response) => {
 
     const notifyEmails: string[] = [];
 
-    if (leave.approver?.email) {
-      notifyEmails.push(leave.approver.email);
-    }
+    // if (leave.approver?.email) {
+    //   notifyEmails.push(leave.approver.email);
+    // }
 
     if (notifyUsers && Array.isArray(notifyUsers)) {
       const users = await prisma.user.findMany({

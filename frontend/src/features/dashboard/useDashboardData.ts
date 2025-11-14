@@ -58,22 +58,25 @@ export function useDashboardData(
 
   const pendingRequests = useMemo(() => {
     if (!isAdmin) return [];
-    return allLeaves
-      .filter((l) => l.status === "PENDING")
-      .slice(0, 3)
-      .map((leave) => ({
-        id: leave.id,
-        employee: leave?.employee?.username,
-        dates: `${format(new Date(leave.startDate), "MMM d")} - ${format(
-          new Date(leave.endDate),
-          "MMM d"
-        )}`,
-        type: leave.type,
-        reason: leave.reason || "No reason provided",
-        status: leave.status,
-        days: leave.days,
-        leave,
-      }));
+    return (
+      allLeaves
+        .filter((l) => l.status === "PENDING")
+        // .slice(0, 3)
+        .map((leave) => ({
+          id: leave.id,
+          employee: leave?.employee?.username,
+          dates: `${format(new Date(leave.startDate), "MMM d")} ${
+            leave.days != 1
+              ? "- " + format(new Date(leave.endDate), "MMM d")
+              : ""
+          } `,
+          type: leave.type,
+          reason: leave.reason || "No reason provided",
+          status: leave.status,
+          days: leave.days,
+          leave,
+        }))
+    );
   }, [allLeaves, isAdmin]);
 
   const recentApprovals = useMemo(() => {
@@ -90,10 +93,9 @@ export function useDashboardData(
       .map((leave) => ({
         employee: isAdmin ? leave?.employee?.username : "You",
         type: leave.type,
-        dates: `${format(new Date(leave.startDate), "MMM d")} - ${format(
-          new Date(leave.endDate),
-          "MMM d"
-        )}`,
+        dates: `${format(new Date(leave.startDate), "MMM d")} ${
+          leave.days != 1 ? "- " + format(new Date(leave.endDate), "MMM d") : ""
+        } `,
         status: leave.status,
         days: leave.days,
       }));

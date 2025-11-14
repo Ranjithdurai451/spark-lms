@@ -37,7 +37,7 @@ export function DashboardPendingApprovals({
         </div>
       </CardHeader>
       <CardContent className="p-5">
-        <div className="space-y-3">
+        <div className="space-y-3 max-h-[350px] overflow-y-auto ">
           {requests.map((req) => (
             <div
               key={req.id}

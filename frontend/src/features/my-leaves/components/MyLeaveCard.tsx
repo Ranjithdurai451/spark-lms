@@ -39,8 +39,9 @@ export function MyLeaveCard({ leave, onView, onCancel }: MyLeaveCardProps) {
             <div className="flex items-center gap-2">
               <Calendar className="w-4 h-4 text-muted-foreground shrink-0" />
               <p className="text-sm font-medium">
-                {format(new Date(leave.startDate), "dd MMM")} -{" "}
-                {format(new Date(leave.endDate), "dd MMM yyyy")}
+                {format(new Date(leave.startDate), "dd MMM yyyy")}
+                {leave.days != 1 &&
+                  ` - ${format(new Date(leave.endDate), "dd MMM yyyy")}`}
               </p>
             </div>
             <p className="text-xs text-muted-foreground pl-6">

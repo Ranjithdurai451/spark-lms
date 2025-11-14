@@ -36,9 +36,11 @@ export function MyLeaveTableRow({
           <p className="text-sm font-medium">
             {format(new Date(leave.startDate), "dd MMM yyyy")}
           </p>
-          <p className="text-xs text-muted-foreground">
-            to {format(new Date(leave.endDate), "dd MMM yyyy")}
-          </p>
+          {leave.days != 1 && (
+            <p className="text-xs text-muted-foreground">
+              to {format(new Date(leave.endDate), "dd MMM yyyy")}
+            </p>
+          )}
         </div>
       </td>
       <td className="p-4">
