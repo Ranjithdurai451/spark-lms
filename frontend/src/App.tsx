@@ -34,9 +34,9 @@ function App() {
         {
           path: "login",
           element: (
-            <PublicRoute>
-              <LoginPage />
-            </PublicRoute>
+            // <PublicRoute>
+            <LoginPage />
+            // </PublicRoute>
           ),
         },
         {
@@ -50,9 +50,9 @@ function App() {
         {
           path: "invite",
           element: (
-            <PublicRoute>
-              <InvitedAccountCreatePage />
-            </PublicRoute>
+            // <PublicRoute>
+            <InvitedAccountCreatePage />
+            // </PublicRoute>
           ),
         },
         {
