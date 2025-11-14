@@ -8,7 +8,6 @@ import { InviteDialog } from "./components/InviteDialog";
 import {
   useDeleteUser,
   useFilteredMembers,
-  useGetOrganizationById,
   useMemberStats,
   useOrganizationMembers,
 } from "./useOrganization";
