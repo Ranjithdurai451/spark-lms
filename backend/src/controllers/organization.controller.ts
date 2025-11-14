@@ -1,40 +1,57 @@
 import type { Request, Response } from "express";
+// src/server/controllers/organization.controller.ts
 import { prisma } from "../db";
 import { sendMemberInviteEmail } from "../lib/helpers/mail.helper";
 
-export const getOrganizationById = async (req: Request, res: Response) => {
+export const getOrganizationMembers = async (req: Request, res: Response) => {
   try {
     const { organizationId } = req.params;
-
-    const organization = await prisma.organization.findUnique({
-      where: { id: organizationId },
-      include: {
-        users: {
-          select: {
-            id: true,
-            username: true,
-            email: true,
-            role: true,
-            manager: {
-              select: { id: true, username: true, email: true },
-            },
-          },
-          orderBy: { createdAt: "desc" },
+    const users = await prisma.user.findMany({
+      where: { organizationId },
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        username: true,
+        email: true,
+        role: true,
+        manager: {
+          select: { id: true, username: true, email: true },
         },
       },
     });
+    return res.status(200).json({ message: "Members fetched.", data: users });
+  } catch (error) {
+    res.status(500).json({ message: "Failed to fetch members." });
+  }
+};
 
-    if (!organization) {
-      return res.status(404).json({ message: "Organization not found." });
-    }
+// Members stats endpoint
+export const getOrganizationMemberStats = async (
+  req: Request,
+  res: Response
+) => {
+  try {
+    const { organizationId } = req.params;
+    const result = await prisma.user.groupBy({
+      by: ["role"],
+      where: { organizationId },
+      _count: { _all: true },
+    });
+    const total = result.reduce((sum, row) => sum + row._count._all, 0);
+    const stats = {
+      total,
+      admin: result.find((r) => r.role === "ADMIN")?._count._all ?? 0,
+      hr: result.find((r) => r.role === "HR")?._count._all ?? 0,
+      manager: result.find((r) => r.role === "MANAGER")?._count._all ?? 0,
+      employee: result.find((r) => r.role === "EMPLOYEE")?._count._all ?? 0,
+    };
 
     return res.status(200).json({
-      message: "Organization fetched successfully.",
-      data: organization,
+      message: "Member stats fetched.",
+      data: stats,
     });
   } catch (error) {
-    console.error("getOrganizationById error:", error);
-    res.status(500).json({ message: "Failed to fetch organization." });
+    res.status(500).json({ message: "Failed to fetch stats." });
   }
 };
 

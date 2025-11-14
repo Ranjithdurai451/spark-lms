@@ -10,13 +10,14 @@ import {
   createLeavePolicy,
   updateLeavePolicy,
   deleteLeavePolicy,
+  getLeavePolicyStats,
 } from "../controllers/leave-policy.controller";
 
 const router = express.Router();
 
 // GET all policies for an organization
 router.get("/", authenticate, authorizeOrganization, getLeavePolicies);
-
+router.get("/stats", authenticate, authorizeOrganization, getLeavePolicyStats);
 // CREATE new policy
 router.post(
   "/",

@@ -11,11 +11,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Calendar, CalendarDays, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format, isToday, isFuture, isPast, differenceInDays } from "date-fns";
+import type { Holiday } from "@/features/holidays/holidayService";
 
 interface ViewHolidaysDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  holidays: any[];
+  holidays: Holiday[];
 }
 
 export function ViewHolidaysDialog({

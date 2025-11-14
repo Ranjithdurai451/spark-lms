@@ -14,6 +14,7 @@ import { HolidayStats } from "./components/HolidayStats";
 import {
   useDeleteHoliday,
   useGetHolidays,
+  useGetHolidayStats,
   useHolidaysFilters,
 } from "./useHolidays";
 import { queryClient } from "../root/Providers";
@@ -34,24 +35,27 @@ export function HolidaysPage() {
 
   const { user, hasAccess } = useAuth();
   const orgId = user?.organization?.id ?? "";
-
   const { data, isLoading, isError, refetch, isFetching } =
     useGetHolidays(orgId);
-  const holidays = data?.data ?? [];
+  const { data: statsData, isLoading: statsLoading } =
+    useGetHolidayStats(orgId);
 
-  const { filteredHolidays, stats } = useHolidaysFilters(
+  const holidays = data?.data ?? [];
+  const stats = statsData?.data;
+
+  const { filteredHolidays } = useHolidaysFilters(
     holidays,
     activeTab,
     searchQuery
   );
 
-  const canManage = hasAccess(["ADMIN", "HR"]);
-  const { mutate: deleteHoliday } = useDeleteHoliday();
   const handleRefetch = () => {
     queryClient.invalidateQueries(["holidays", orgId] as any);
   };
+  const canManage = hasAccess(["ADMIN", "HR"]);
+  const { mutate: deleteHoliday } = useDeleteHoliday();
 
-  if (isLoading) return <HolidaySkeleton />;
+  if (isLoading || statsLoading) return <HolidaySkeleton />;
   if (isError)
     return <ErrorPage message="Failed to load holidays." refetch={refetch} />;
 

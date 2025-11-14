@@ -4,6 +4,7 @@ import {
   createHoliday,
   updateHoliday,
   deleteHoliday,
+  getHolidayStats,
 } from "../controllers/holiday.controller";
 import {
   authenticate,
@@ -14,7 +15,7 @@ import {
 const router = express.Router({ mergeParams: true });
 
 router.get("/", authenticate, authorizeOrganization, getHolidays);
-
+router.get("/stats", authenticate, authorizeOrganization, getHolidayStats);
 router.post(
   "/",
   authenticate,

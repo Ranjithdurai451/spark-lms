@@ -12,7 +12,11 @@ import { MyLeaveStats } from "./components/MyLeaveStats";
 import { queryClient } from "../root/Providers";
 import { LeaveSkeleton } from "./components/LeaveSkeleton";
 import type { Leave } from "./MyleavesService";
-import { useGetMyLeaves, useMyLeaveFilters } from "./useMyLeaves";
+import {
+  useGetMyLeaves,
+  useGetMyLeaveStats,
+  useMyLeaveFilters,
+} from "./useMyLeaves";
 import ErrorPage from "../common/components/ErrorPage";
 import { PageHeader } from "../common/components/PageHeader";
 import { ViewModeToggle } from "../common/components/ViewModeToggle";
@@ -24,18 +28,20 @@ export function MyLeavesPage() {
   const [isRequestSheetOpen, setIsRequestSheetOpen] = useState(false);
   const [viewingLeave, setViewingLeave] = useState<Leave | null>(null);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
-
   const { data, isLoading, isError, refetch, isFetching } = useGetMyLeaves();
-  const leaves = data?.data ?? [];
+  const { data: statsData, isLoading: statsLoading } = useGetMyLeaveStats();
 
-  const { filteredLeaves, stats } = useMyLeaveFilters(leaves, activeTab);
+  const leaves = data?.data ?? [];
+  const stats = statsData?.data;
+
+  const { filteredLeaves } = useMyLeaveFilters(leaves, activeTab);
 
   const handleRefetch = () => {
     queryClient.invalidateQueries(["my-leaves"] as any);
     queryClient.invalidateQueries(["leave-balances"] as any);
   };
 
-  if (isLoading) return <LeaveSkeleton />;
+  if (isLoading || statsLoading) return <LeaveSkeleton />;
   if (isError)
     return <ErrorPage message="Failed to load your leaves" refetch={refetch} />;
 

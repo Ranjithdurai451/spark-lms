@@ -4,7 +4,11 @@ import {
   authenticate,
   authorizeOrganization,
 } from "../middlewares/auth.middleware";
-import { getUserProfile, updateProfile } from "../controllers/user.controller";
+import {
+  getDashboardStats,
+  getUserProfile,
+  updateProfile,
+} from "../controllers/user.controller";
 
 const router = express.Router();
 
@@ -17,6 +21,13 @@ router.get(
   authenticate,
   authorizeOrganization,
   getUserProfile
+);
+
+router.get(
+  "/dashboard-stats",
+  authenticate,
+  authorizeOrganization,
+  getDashboardStats
 );
 
 // Update own profile

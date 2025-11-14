@@ -3,11 +3,14 @@ import {
   acceptInvite,
   checkAuth,
   forgotPassword,
+  getActiveSessions,
   login,
   logout,
   registerAdmin,
+  removeSession,
   resetPassword,
   sendEmailVerificationOtp,
+  switchSession,
   verifyEmail,
 } from "../controllers/auth.controller";
 import { validateBody } from "../lib/helpers/common.helper";
@@ -18,6 +21,7 @@ import {
   acceptInviteSchema,
   loginSchema,
 } from "../lib/schemas/auth.schema";
+import { authenticate } from "../middlewares/auth.middleware";
 
 const router = express.Router();
 
@@ -35,4 +39,7 @@ router.post("/logout", logout);
 router.post("/forgot-password", forgotPassword);
 router.post("/reset-password", resetPassword);
 router.get("/check", checkAuth);
+router.get("/sessions", authenticate, getActiveSessions);
+router.post("/switch-session", authenticate, switchSession);
+router.post("/remove-session", authenticate, removeSession);
 export { router as authRouter };

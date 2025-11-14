@@ -1,6 +1,6 @@
 // features/root/ProfileDropdown.tsx
 import { useState } from "react";
-import { LogOut, Loader2, User } from "lucide-react";
+import { LogOut, Loader2, User, RefreshCw } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -23,6 +23,8 @@ import { Button } from "@/components/ui/button";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { useLogout } from "../auth/useAuth";
 import { useNavigate } from "react-router";
+import { queryClient } from "./Providers";
+import { AccountSwitcherDialog } from "./AccountSwitcherDialog";
 
 export default function ProfileDropdown() {
   const user = useAppSelector((state) => state.auth.user);
@@ -30,13 +32,14 @@ export default function ProfileDropdown() {
   const { mutate: logout, isPending } = useLogout();
   const navigate = useNavigate();
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
+  const [showAccountDialog, setShowAccountDialog] = useState(false);
 
   const handleSignOut = async () => {
     logout(undefined, {
       onSuccess: () => {
         dispatch.auth.clearUser();
-        localStorage.removeItem("user");
-        navigate("/login");
+        queryClient.clear();
+        navigate("/login", { replace: true });
       },
     });
   };
@@ -66,10 +69,8 @@ export default function ProfileDropdown() {
               </span>
             </div>
           </DropdownMenuLabel>
-
           <DropdownMenuSeparator />
 
-          {/* View Profile */}
           <DropdownMenuItem
             onClick={() => navigate("/in/profile")}
             className="cursor-pointer"
@@ -78,9 +79,14 @@ export default function ProfileDropdown() {
             View Profile
           </DropdownMenuItem>
 
-          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            onClick={() => setTimeout(() => setShowAccountDialog(true), 100)}
+            className="cursor-pointer"
+          >
+            <RefreshCw className="w-4 h-4 mr-2" />
+            Switch Account
+          </DropdownMenuItem>
 
-          {/* Sign Out */}
           <DropdownMenuItem
             onClick={() => setShowLogoutDialog(true)}
             className="cursor-pointer text-destructive focus:text-destructive"
@@ -96,7 +102,13 @@ export default function ProfileDropdown() {
         </DropdownMenuContent>
       </DropdownMenu>
 
-      {/* Logout Confirmation Dialog */}
+      {/* Account Switcher Dialog outside Dropdown tree */}
+      <AccountSwitcherDialog
+        open={showAccountDialog}
+        onOpenChange={setShowAccountDialog}
+      />
+
+      {/* Logout Confirm Dialog */}
       <AlertDialog open={showLogoutDialog} onOpenChange={setShowLogoutDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>

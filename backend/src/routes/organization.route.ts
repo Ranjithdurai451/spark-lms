@@ -1,7 +1,8 @@
 import express from "express";
 import {
   deleteUser,
-  getOrganizationById,
+  getOrganizationMembers,
+  getOrganizationMemberStats,
   inviteMember,
   updateUser,
 } from "../controllers/organization.controller";
@@ -11,12 +12,17 @@ import {
   authorizeRoles,
 } from "../middlewares/auth.middleware";
 const router = express.Router();
-
 router.get(
-  "/:organizationId",
+  "/:organizationId/members",
   authenticate,
   authorizeOrganization,
-  getOrganizationById
+  getOrganizationMembers
+);
+router.get(
+  "/:organizationId/members/stats",
+  authenticate,
+  authorizeOrganization,
+  getOrganizationMemberStats
 );
 router.post(
   "/invite-member",

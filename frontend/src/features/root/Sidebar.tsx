@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useState, useMemo } from "react";
 import { useAuth } from "../auth/useAuth";
+import { queryClient } from "./Providers";
 
 interface SidebarProps {
   isOpen: boolean;
@@ -89,6 +90,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
 
   const handleLogout = () => {
     dispatch.logout();
+    queryClient.clear();
     onClose();
     navigate("/login", { replace: true });
   };

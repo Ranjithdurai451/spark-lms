@@ -159,7 +159,29 @@ export const registerAdmin = async (
       { userId: adminUser.id, role: adminUser.role },
       "30d"
     );
-
+    let sessions: StoredSession[] = [];
+    const sessionsCookie = req.cookies["user-sessions"];
+    if (sessionsCookie) {
+      sessions = JSON.parse(sessionsCookie) as StoredSession[];
+    }
+    if (!sessions.find((s) => s.userId === adminUser.id)) {
+      sessions.push({
+        userId: adminUser.id,
+        token: authToken,
+        email: adminUser.email,
+        username: adminUser.username,
+        role: adminUser.role,
+        organizationId: org.id,
+        organizationName: org.organizationName,
+        addedAt: Date.now(),
+      });
+    }
+    res.cookie("user-sessions", JSON.stringify(sessions), {
+      httpOnly: true,
+      secure: process.env.NODE_ENV !== "development",
+      sameSite: process.env.NODE_ENV !== "development" ? "none" : "lax",
+      maxAge: 30 * 24 * 60 * 60 * 1000,
+    });
     res.cookie("auth-token", authToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV !== "development",
@@ -221,6 +243,30 @@ export const acceptInvite = async (
       { userId: newUser.id, role: newUser.role },
       "30d"
     );
+    // ... after successful login/authToken generation ...
+    let sessions: StoredSession[] = [];
+    const sessionsCookie = req.cookies["user-sessions"];
+    if (sessionsCookie) {
+      sessions = JSON.parse(sessionsCookie) as StoredSession[];
+    }
+    if (!sessions.find((s) => s.userId === newUser.id)) {
+      sessions.push({
+        userId: newUser.id,
+        token: authToken,
+        email: newUser.email,
+        username: newUser.username,
+        role: newUser.role,
+        organizationId: newUser?.organization?.id,
+        organizationName: newUser?.organization?.organizationName,
+        addedAt: Date.now(),
+      });
+    }
+    res.cookie("user-sessions", JSON.stringify(sessions), {
+      httpOnly: true,
+      secure: process.env.NODE_ENV !== "development",
+      sameSite: process.env.NODE_ENV !== "development" ? "none" : "lax",
+      maxAge: 30 * 24 * 60 * 60 * 1000,
+    });
 
     res.cookie("auth-token", authToken, {
       httpOnly: true,
@@ -278,6 +324,30 @@ export const login = async (req: Request, res: Response) => {
       { userId: user.id, role: user.role },
       "30d"
     );
+    // ... after successful login/authToken generation ...
+    let sessions: StoredSession[] = [];
+    const sessionsCookie = req.cookies["user-sessions"];
+    if (sessionsCookie) {
+      sessions = JSON.parse(sessionsCookie) as StoredSession[];
+    }
+    if (!sessions.find((s) => s.userId === user.id)) {
+      sessions.push({
+        userId: user.id,
+        token: authToken,
+        email: user.email,
+        username: user.username,
+        role: user.role,
+        organizationId: user.organization?.id,
+        organizationName: user.organization?.organizationName,
+        addedAt: Date.now(),
+      });
+    }
+    res.cookie("user-sessions", JSON.stringify(sessions), {
+      httpOnly: true,
+      secure: process.env.NODE_ENV !== "development",
+      sameSite: process.env.NODE_ENV !== "development" ? "none" : "lax",
+      maxAge: 30 * 24 * 60 * 60 * 1000,
+    });
 
     res.cookie("auth-token", authToken, {
       httpOnly: true,
@@ -436,5 +506,257 @@ export const resetPassword = async (req: Request, res: Response) => {
       message:
         "Invalid or expired password reset link. Please request a new one.",
     });
+  }
+};
+
+interface StoredSession {
+  userId: string;
+  token: string;
+  email: string;
+  username: string;
+  role: string;
+  organizationId?: string | null;
+  organizationName?: string | null;
+  addedAt: number;
+}
+
+/* -------------------------------------------------------------------------- */
+/*                           Get Active Sessions                              */
+/* -------------------------------------------------------------------------- */
+export const getActiveSessions = async (req: Request, res: Response) => {
+  try {
+    const sessionsData = req.cookies["user-sessions"];
+    const currentToken = req.cookies["auth-token"];
+
+    if (!sessionsData || !currentToken) {
+      return res.status(200).json({
+        message: "No active sessions",
+        data: { sessions: [] },
+      });
+    }
+
+    const sessions: StoredSession[] = JSON.parse(sessionsData);
+
+    // Verify all sessions and fetch fresh user data
+    const validSessions = await Promise.all(
+      sessions.map(async (session) => {
+        try {
+          const verification = verifyToken<authTokenPayload>(session.token);
+          if (!verification.valid) return null;
+
+          const user = await prisma.user.findUnique({
+            where: { id: session.userId },
+            include: {
+              organization: {
+                select: {
+                  id: true,
+                  organizationName: true,
+                  organizationCode: true,
+                },
+              },
+              manager: {
+                select: {
+                  id: true,
+                  username: true,
+                },
+              },
+            },
+          });
+
+          if (!user) return null;
+
+          return {
+            id: user.id,
+            email: user.email,
+            username: user.username,
+            role: user.role,
+            organization: user.organization,
+            manager: user.manager,
+            isActive: session.token === currentToken,
+            addedAt: session.addedAt,
+          };
+        } catch {
+          return null;
+        }
+      })
+    );
+
+    const activeSessions = validSessions.filter((s) => s !== null);
+
+    res.status(200).json({
+      message: "Active sessions retrieved",
+      data: { sessions: activeSessions },
+    });
+  } catch (err) {
+    console.error("getActiveSessions error:", err);
+    res.status(500).json({ message: "Failed to get sessions" });
+  }
+};
+
+/* -------------------------------------------------------------------------- */
+/*                            Switch Session                                  */
+/* -------------------------------------------------------------------------- */
+export const switchSession = async (req: Request, res: Response) => {
+  try {
+    const { userId } = req.body;
+    const sessionsData = req.cookies["user-sessions"];
+
+    if (!sessionsData) {
+      return res.status(400).json({ message: "No sessions found" });
+    }
+
+    const sessions: StoredSession[] = JSON.parse(sessionsData);
+    const targetSession = sessions.find((s) => s.userId === userId);
+
+    if (!targetSession) {
+      return res.status(404).json({ message: "Session not found" });
+    }
+
+    // Verify the token is still valid
+    const verification = verifyToken<authTokenPayload>(targetSession.token);
+    if (!verification.valid) {
+      // Remove invalid session
+      const updatedSessions = sessions.filter((s) => s.userId !== userId);
+      res.cookie("user-sessions", JSON.stringify(updatedSessions), {
+        httpOnly: true,
+        secure: process.env.NODE_ENV !== "development",
+        sameSite: process.env.NODE_ENV !== "development" ? "none" : "lax",
+        maxAge: 30 * 24 * 60 * 60 * 1000,
+      });
+      return res.status(400).json({ message: "Session expired" });
+    }
+
+    // Fetch fresh user data
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        organization: true,
+        manager: {
+          select: {
+            id: true,
+            username: true,
+          },
+        },
+      },
+    });
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Set the auth token to the target session's token
+    res.cookie("auth-token", targetSession.token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV !== "development",
+      sameSite: process.env.NODE_ENV !== "development" ? "none" : "lax",
+      maxAge: 30 * 24 * 60 * 60 * 1000,
+    });
+
+    res.status(200).json({
+      message: `Switched to ${
+        user.organization?.organizationName || user.username
+      }`,
+      data: {
+        user: {
+          id: user.id,
+          email: user.email,
+          username: user.username,
+          role: user.role,
+          organization: user.organization,
+          manager: user.manager,
+        },
+      },
+    });
+  } catch (err) {
+    console.error("switchSession error:", err);
+    res.status(500).json({ message: "Failed to switch session" });
+  }
+};
+
+/* -------------------------------------------------------------------------- */
+/*                            Remove Session                                  */
+/* -------------------------------------------------------------------------- */
+export const removeSession = async (req: Request, res: Response) => {
+  try {
+    const { userId } = req.body;
+    const sessionsData = req.cookies["user-sessions"];
+    const currentToken = req.cookies["auth-token"];
+
+    if (!sessionsData) {
+      return res.status(400).json({ message: "No sessions found" });
+    }
+
+    const sessions: StoredSession[] = JSON.parse(sessionsData);
+    const sessionToRemove = sessions.find((s) => s.userId === userId);
+
+    if (!sessionToRemove) {
+      return res.status(404).json({ message: "Session not found" });
+    }
+
+    // Remove the session
+    const updatedSessions = sessions.filter((s) => s.userId !== userId);
+
+    // If removing current session, switch to another one or logout
+    if (sessionToRemove.token === currentToken) {
+      if (updatedSessions.length > 0) {
+        // Switch to the first available session
+        const nextSession = updatedSessions[0];
+        res.cookie("auth-token", nextSession.token, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV !== "development",
+          sameSite: process.env.NODE_ENV !== "development" ? "none" : "lax",
+          maxAge: 30 * 24 * 60 * 60 * 1000,
+        });
+
+        const user = await prisma.user.findUnique({
+          where: { id: nextSession.userId },
+          include: { organization: true, manager: true },
+        });
+
+        res.cookie("user-sessions", JSON.stringify(updatedSessions), {
+          httpOnly: true,
+          secure: process.env.NODE_ENV !== "development",
+          sameSite: process.env.NODE_ENV !== "development" ? "none" : "lax",
+          maxAge: 30 * 24 * 60 * 60 * 1000,
+        });
+
+        return res.status(200).json({
+          message: "Session removed and switched to another account",
+          data: { user, switchedToAnother: true },
+        });
+      } else {
+        // No more sessions, logout completely
+        res.clearCookie("auth-token", {
+          httpOnly: true,
+          secure: process.env.NODE_ENV !== "development",
+          sameSite: process.env.NODE_ENV !== "development" ? "none" : "lax",
+        });
+        res.clearCookie("user-sessions", {
+          httpOnly: true,
+          secure: process.env.NODE_ENV !== "development",
+          sameSite: process.env.NODE_ENV !== "development" ? "none" : "lax",
+        });
+        return res.status(200).json({
+          message: "Last session removed, logged out",
+          data: { switchedToAnother: false },
+        });
+      }
+    }
+
+    // Update sessions cookie
+    res.cookie("user-sessions", JSON.stringify(updatedSessions), {
+      httpOnly: true,
+      secure: process.env.NODE_ENV !== "development",
+      sameSite: process.env.NODE_ENV !== "development" ? "none" : "lax",
+      maxAge: 30 * 24 * 60 * 60 * 1000,
+    });
+
+    res.status(200).json({
+      message: "Session removed successfully",
+      data: { switchedToAnother: false },
+    });
+  } catch (err) {
+    console.error("removeSession error:", err);
+    res.status(500).json({ message: "Failed to remove session" });
   }
 };

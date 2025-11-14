@@ -1,5 +1,5 @@
 // features/leave-policy/LeavePolicyPage.tsx
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Plus, FileText } from "lucide-react";
@@ -8,7 +8,11 @@ import { EditPolicyDialog } from "./components/EditPolicyDialog";
 import { PolicyCard } from "./components/PolicyCard";
 import { PolicyTableRow } from "./components/PolicyTableRow";
 import { PolicyStats } from "./components/PolicyStats";
-import { useDeleteLeavePolicy, useGetLeavePolicies } from "./useLeavePolicy";
+import {
+  useDeleteLeavePolicy,
+  useGetLeavePolicies,
+  useGetLeavePolicyStats,
+} from "./useLeavePolicy";
 import { queryClient } from "../root/Providers";
 import { LeavePolicySkeleton } from "./components/LeavePolicySkeleton";
 import ErrorPage from "../common/components/ErrorPage";
@@ -25,25 +29,13 @@ export function LeavePolicyPage() {
 
   const { user, hasAccess } = useAuth();
   const orgId = user?.organization?.id ?? "";
-
   const { data, isLoading, isError, refetch, isFetching } =
     useGetLeavePolicies(orgId);
-  const policies = data?.data ?? [];
+  const { data: statsData, isLoading: statsLoading } =
+    useGetLeavePolicyStats(orgId);
 
-  const stats = useMemo(
-    () => ({
-      total: policies.length,
-      active: policies.filter((p) => p.active).length,
-      avgDays:
-        policies.length > 0
-          ? Math.round(
-              policies.reduce((sum, p) => sum + p.maxDays, 0) / policies.length
-            )
-          : 0,
-      totalDays: policies.reduce((sum, p) => sum + p.maxDays, 0),
-    }),
-    [policies]
-  );
+  const policies = data?.data ?? [];
+  const stats = statsData?.data;
 
   const canManage = hasAccess(["ADMIN", "HR"]);
 
@@ -52,7 +44,7 @@ export function LeavePolicyPage() {
   };
   const { mutate: deletePolicy } = useDeleteLeavePolicy();
 
-  if (isLoading) return <LeavePolicySkeleton />;
+  if (isLoading || statsLoading) return <LeavePolicySkeleton />;
   if (isError)
     return (
       <ErrorPage message="Failed to load leave policies." refetch={refetch} />

@@ -13,6 +13,12 @@ export interface Holiday {
   createdAt: string;
 }
 
+export interface HolidayStats {
+  total: number;
+  public: number;
+  company: number;
+}
+
 export interface HolidayPayload {
   name: string;
   date: string;
@@ -23,8 +29,18 @@ export interface HolidayPayload {
 }
 
 class HolidayService {
-  static async getHolidays(): Promise<ApiResponse<Holiday[]>> {
-    const { data } = await api.get(`/holidays`);
+  static async getHolidays(orgId: string): Promise<ApiResponse<Holiday[]>> {
+    const { data } = await api.get(`/holidays`, {
+      params: { organizationId: orgId },
+    });
+    return data;
+  }
+  static async getHolidayStats(
+    orgId: string
+  ): Promise<ApiResponse<HolidayStats>> {
+    const { data } = await api.get(`/holidays/stats`, {
+      params: { organizationId: orgId },
+    });
     return data;
   }
 

@@ -8,13 +8,14 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CheckCircle2, AlertCircle } from "lucide-react";
+import type { PendingApproval } from "@/features/profile/profileService";
 
 export function DashboardPendingApprovals({
   requests,
   onApprove,
   onReject,
 }: {
-  requests: any[];
+  requests: PendingApproval[];
   onApprove: (leave: any) => void;
   onReject: (leave: any) => void;
 }) {

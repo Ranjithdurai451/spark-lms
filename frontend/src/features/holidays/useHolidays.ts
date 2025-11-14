@@ -1,33 +1,33 @@
 // src/features/holidays/useHolidays.ts
 import { useQuery } from "@tanstack/react-query";
 import type { AxiosError } from "axios";
-import HolidayService, { type Holiday } from "./holidayService";
+import HolidayService, {
+  type Holiday,
+  type HolidayStats,
+} from "./holidayService";
 import { useApiMutation } from "@/lib/hooks";
 import type { ApiResponse } from "@/features/auth/authService";
 import { useMemo } from "react";
 import { format } from "date-fns";
 
-/* ---------- GET HOLIDAYS ---------- */
 export const useGetHolidays = (organizationId: string) =>
   useQuery<ApiResponse<Holiday[]>, AxiosError<ApiResponse>>({
     queryKey: ["holidays", organizationId],
-    queryFn: async () => HolidayService.getHolidays(),
+    queryFn: () => HolidayService.getHolidays(organizationId),
     enabled: !!organizationId,
   });
 
-/* ---------- ADD HOLIDAY ---------- */
-export const useAddHoliday = () => useApiMutation(HolidayService.addHoliday);
+/* ---------- GET HOLIDAY STATS ---------- */
+export const useGetHolidayStats = (organizationId: string) =>
+  useQuery<ApiResponse<HolidayStats>, AxiosError<ApiResponse>>({
+    queryKey: ["holiday-stats", organizationId],
+    queryFn: () => HolidayService.getHolidayStats(organizationId),
+    enabled: !!organizationId,
+  });
 
-/* ---------- UPDATE HOLIDAY ---------- */
-export const useUpdateHoliday = () =>
-  useApiMutation(HolidayService.updateHoliday);
-
-/* ---------- DELETE HOLIDAY ---------- */
-export const useDeleteHoliday = () =>
-  useApiMutation(HolidayService.deleteHoliday);
-
+/* ---------- FILTERS (only filtering in client) ---------- */
 export function useHolidaysFilters(
-  holidays: any[],
+  holidays: Holiday[],
   activeTab: string,
   searchQuery: string
 ) {
@@ -39,7 +39,6 @@ export function useHolidaysFilters(
 
   const filteredHolidays = useMemo(() => {
     if (!searchQuery.trim()) return filteredByType;
-
     const query = searchQuery.toLowerCase();
     return filteredByType.filter(
       (h) =>
@@ -49,14 +48,16 @@ export function useHolidaysFilters(
     );
   }, [filteredByType, searchQuery]);
 
-  const stats = useMemo(
-    () => ({
-      total: holidays.length,
-      public: holidays.filter((h) => h.type === "PUBLIC").length,
-      company: holidays.filter((h) => h.type === "COMPANY").length,
-    }),
-    [holidays]
-  );
-
-  return { filteredHolidays, stats };
+  return { filteredHolidays };
 }
+
+/* ---------- ADD HOLIDAY ---------- */
+export const useAddHoliday = () => useApiMutation(HolidayService.addHoliday);
+
+/* ---------- UPDATE HOLIDAY ---------- */
+export const useUpdateHoliday = () =>
+  useApiMutation(HolidayService.updateHoliday);
+
+/* ---------- DELETE HOLIDAY ---------- */
+export const useDeleteHoliday = () =>
+  useApiMutation(HolidayService.deleteHoliday);

@@ -7,7 +7,8 @@ import { EditMemberDialog } from "./components/EditMemberDialog";
 import { InviteDialog } from "./components/InviteDialog";
 import {
   useDeleteUser,
-  useGetOrganizationById,
+  useFilteredMembers,
+  useMemberStats,
   useOrganizationMembers,
 } from "./useOrganization";
 import { OrganizationSkeleton } from "./components/OrganizationSkeleton";
@@ -21,76 +22,76 @@ import { MemberTableRow } from "./components/MemberTableRow";
 import { getRoleColor } from "./utils";
 import { useAuth } from "../auth/useAuth";
 import { DeleteConfirmDialog } from "../common/components/DeleteConfirmDialog";
+import type { OrganizationMember, RoleStats } from "@/lib/types";
 
 export function OrganizationPage() {
   const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
   const [searchQuery, setSearchQuery] = useState("");
-  const [editingMember, setEditingMember] = useState<any | null>(null);
+  const [editingMember, setEditingMember] = useState<OrganizationMember | null>(
+    null
+  );
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [isInviteOpen, setIsInviteOpen] = useState(false);
 
   const { user, hasAccess, isCurrentUser } = useAuth();
+  const orgId = user?.organization?.id ?? "";
 
-  const { data, isLoading, isError, error, refetch, isFetching } =
-    useGetOrganizationById(user?.organization?.id ?? "");
+  // Fetch organization members and stats separately (using your new endpoints)
+  const {
+    data: membersData,
+    isLoading,
+    isError,
+    error,
+    refetch,
+    isFetching,
+  } = useOrganizationMembers(orgId);
+  const { data: statsData, isLoading: statsLoading } = useMemberStats(orgId);
 
-  const org = data?.data;
-  const members = org?.users || [];
+  const members = membersData?.data ?? [];
+  const roleStats: RoleStats | undefined = statsData?.data;
 
-  const { filteredMembers, roleStats } = useOrganizationMembers(
-    members,
-    searchQuery
-  );
+  // Local client-side filtering:
+  const filteredMembers = useFilteredMembers(members, searchQuery);
+
   const canManage = hasAccess(["ADMIN", "HR"]);
 
   const handleRefetch = () => {
-    if (org?.id) {
-      queryClient.invalidateQueries(["organization", org.id] as any);
-    }
+    queryClient.invalidateQueries(["organization-members", orgId] as any);
+    queryClient.invalidateQueries(["organization-member-stats", orgId] as any);
   };
 
   const { mutate: deleteUser } = useDeleteUser();
-  if (isLoading) return <OrganizationSkeleton />;
+
+  if (isLoading || statsLoading) return <OrganizationSkeleton />;
 
   if (isError)
     return (
       <ErrorPage
         message={
-          error.response?.data?.message || "Failed to load organization."
+          error?.response?.data?.message || "Failed to load organization."
         }
         refetch={refetch}
       />
     );
 
-  if (!org)
-    return (
-      <div className="flex flex-col items-center justify-center h-[80vh] space-y-4 text-center">
-        <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-2">
-          <Users2 className="w-8 h-8 text-muted-foreground" />
-        </div>
-        <p className="text-muted-foreground text-lg">
-          No organization data available.
-        </p>
-        <Button onClick={() => refetch()} variant="outline">
-          Reload
-        </Button>
-      </div>
-    );
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20">
       <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6">
-        {/* Header */}
+        {/* Header (replace with your static org name/code as fetched from profile/elsewhere) */}
         <PageHeader
-          title={org.organizationName}
-          isLoading={isFetching}
+          title={user?.organization?.organizationName || "Organization"}
+          isLoading={isFetching || statsLoading}
           subtitle={
             <div className="flex items-center gap-3">
-              <span className="font-mono text-xs">{org.organizationCode}</span>
-              {org.organizationDescription && (
+              <span className="font-mono text-xs">
+                {user?.organization?.organizationCode}
+              </span>
+              {user?.organization?.organizationDescription && (
                 <>
                   <span>•</span>
-                  <span className="text-xs">{org.organizationDescription}</span>
+                  <span className="text-xs">
+                    {user.organization.organizationDescription}
+                  </span>
                 </>
               )}
             </div>
@@ -118,7 +119,6 @@ export function OrganizationPage() {
                 <h2 className="text-lg font-semibold mb-2">
                   Employee Directory
                 </h2>
-
                 {/* Search Bar */}
                 <div className="relative max-w-md">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -137,14 +137,12 @@ export function OrganizationPage() {
                     </button>
                   )}
                 </div>
-
                 <p className="text-xs text-muted-foreground mt-2">
                   {filteredMembers.length}{" "}
                   {filteredMembers.length === 1 ? "member" : "members"}
                   {searchQuery && ` found for "${searchQuery}"`}
                 </p>
               </div>
-
               <ViewModeToggle
                 viewMode={viewMode}
                 onViewModeChange={setViewMode}
@@ -191,7 +189,6 @@ export function OrganizationPage() {
                 ) : null}
               </div>
             ) : viewMode === "grid" ? (
-              /* Grid View */
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-6">
                 {filteredMembers.map((member) => (
                   <MemberCard
@@ -206,7 +203,6 @@ export function OrganizationPage() {
                 ))}
               </div>
             ) : (
-              /* Table View */
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead className="bg-muted/50 border-b">
