@@ -35,6 +35,7 @@ export function AccountSwitcherDialog({
       onSuccess: (user) => {
         dispatch.auth.setUser(user);
         setTimeout(() => {
+          queryClient.clear();
           setSwitchingId(null);
           onOpenChange(false);
           window.location.reload();

@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { useNavigate, useSearchParams } from "react-router";
 import { useAcceptInvite } from "../useAuth";
 import { useAppDispatch } from "@/lib/hooks";
+import { queryClient } from "@/features/root/Providers";
 type InviteAccount = z.infer<typeof InviteAccountSchema>;
 export const InvitedAccountCreatePage = () => {
   const navigate = useNavigate();
@@ -34,6 +35,7 @@ export const InvitedAccountCreatePage = () => {
   });
   const dispatch = useAppDispatch();
   const onSubmit = (formData: InviteAccount) => {
+    queryClient.clear();
     setErrorMsg(null);
     if (token) {
       const payload = {

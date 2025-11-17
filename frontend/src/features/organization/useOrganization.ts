@@ -4,24 +4,9 @@ import { useQuery } from "@tanstack/react-query";
 import OrganizationService from "./organizationService";
 import type { ApiResponse } from "@/features/auth/authService";
 import type { AxiosError } from "axios";
-import type {
-  FullOrganization,
-  OrganizationMember,
-  RoleStats,
-} from "@/lib/types";
+import type { OrganizationMember, RoleStats } from "@/lib/types";
 import { useApiMutation } from "@/lib/hooks";
 import { useMemo } from "react";
-
-/* ---------- GET ORGANIZATION ---------- */
-export const useGetOrganizationById = (organizationId: string) =>
-  useQuery<ApiResponse<FullOrganization>, AxiosError<ApiResponse>>({
-    queryKey: ["organization", organizationId],
-    queryFn: async () => {
-      const res = await OrganizationService.getOrganizationById(organizationId);
-      return res;
-    },
-    enabled: !!organizationId,
-  });
 
 /* ---------- INVITE MEMBER ---------- */
 export const useInviteMember = () =>

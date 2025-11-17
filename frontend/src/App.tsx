@@ -33,43 +33,23 @@ function App() {
         },
         {
           path: "login",
-          element: (
-            // <PublicRoute>
-            <LoginPage />
-            // </PublicRoute>
-          ),
+          element: <LoginPage />,
         },
         {
           path: "register-admin",
-          element: (
-            <PublicRoute>
-              <RegisterPage />
-            </PublicRoute>
-          ),
+          element: <RegisterPage />,
         },
         {
           path: "invite",
-          element: (
-            // <PublicRoute>
-            <InvitedAccountCreatePage />
-            // </PublicRoute>
-          ),
+          element: <InvitedAccountCreatePage />,
         },
         {
           path: "forgot-password",
-          element: (
-            <PublicRoute>
-              <ForgotPasswordPage />
-            </PublicRoute>
-          ),
+          element: <ForgotPasswordPage />,
         },
         {
           path: "reset-password",
-          element: (
-            <PublicRoute>
-              <ResetPasswordPage />
-            </PublicRoute>
-          ),
+          element: <ResetPasswordPage />,
         },
       ],
     },

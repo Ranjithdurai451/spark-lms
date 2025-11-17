@@ -56,13 +56,10 @@ export function EditProfileDialog({
 
     updateProfile(username.trim(), {
       onSuccess: (data) => {
-        // Update Redux store with new username
         if (data?.data) {
           dispatch.auth.setUser(data.data);
-          localStorage.setItem("user", JSON.stringify(data.data));
         }
 
-        // Invalidate queries
         queryClient.invalidateQueries(["profile"] as any);
 
         onSuccess();

@@ -36,7 +36,6 @@ export function OrganizationPage() {
   const { user, hasAccess, isCurrentUser } = useAuth();
   const orgId = user?.organization?.id ?? "";
 
-  // Fetch organization members and stats separately (using your new endpoints)
   const {
     data: membersData,
     isLoading,
@@ -50,7 +49,6 @@ export function OrganizationPage() {
   const members = membersData?.data ?? [];
   const roleStats: RoleStats | undefined = statsData?.data;
 
-  // Local client-side filtering:
   const filteredMembers = useFilteredMembers(members, searchQuery);
 
   const canManage = hasAccess(["ADMIN", "HR"]);

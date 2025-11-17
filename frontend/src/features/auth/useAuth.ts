@@ -47,7 +47,7 @@ export function useAuth() {
   useEffect(() => {
     if (data) dispatch.auth.setUser(data.user);
     else dispatch.auth.clearUser();
-  }, [data, dispatch]);
+  }, [data]);
 
   const hasAccess = (allowedRoles: string[] = []) => {
     if (!user?.role) return false;

@@ -9,6 +9,7 @@ import { Link, useNavigate } from "react-router";
 import { loginSchema } from "../schemas";
 import { useLoginUser } from "../useAuth";
 import { useAppDispatch } from "@/lib/hooks";
+import { queryClient } from "@/features/root/Providers";
 
 type LoginFormData = z.infer<typeof loginSchema>;
 
@@ -28,10 +29,12 @@ export const LoginPage = () => {
 
   const dispatch = useAppDispatch();
   const onSubmit = async (data: LoginFormData) => {
+    queryClient.clear();
     loginUser(data, {
       onSuccess: (res) => {
         if (res.data?.user) {
           dispatch.auth.setUser(res.data?.user);
+
           navigate("/in");
         } else {
           setErrorMsg("Something went wrong. Please try again.");

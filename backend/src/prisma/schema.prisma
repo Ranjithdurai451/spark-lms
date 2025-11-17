@@ -42,7 +42,7 @@ model User {
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   managerId String?
-  manager   User?   @relation("UserHierarchy", fields: [managerId], references: [id], onDelete: Cascade)
+  manager   User?   @relation("UserHierarchy", fields: [managerId], references: [id])
   reports   User[]  @relation("UserHierarchy")
 
   leavesRequested Leave[] @relation("EmployeeLeaves")

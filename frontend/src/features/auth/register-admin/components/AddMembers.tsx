@@ -124,7 +124,9 @@ export const AddMembers = ({ data, onBack }: AddMembersProps) => {
                 <SelectValue placeholder="Select role" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="HR">HR / Manager</SelectItem>
+                <SelectItem value="ADMIN">Admin</SelectItem>
+                <SelectItem value="MANAGER">Manager</SelectItem>
+                <SelectItem value="HR">HR </SelectItem>
                 <SelectItem value="Employee">Employee</SelectItem>
               </SelectContent>
             </Select>

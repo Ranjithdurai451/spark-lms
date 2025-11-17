@@ -139,7 +139,6 @@ export const registerAdmin = async (
     const adminUser = org.users.find((u) => u.email === email)!;
     const managerId = adminUser.id;
 
-    // Parallelize balance creation and sending invites
     await Promise.all([
       createBalancesForNewUser(adminUser.id, org.id),
       Promise.all(
@@ -536,7 +535,7 @@ export const getActiveSessions = async (req: Request, res: Response) => {
     }
 
     const sessions: StoredSession[] = JSON.parse(sessionsData);
-
+    // console.log("Sessions", sessions);
     // Verify all sessions and fetch fresh user data
     const validSessions = await Promise.all(
       sessions.map(async (session) => {

@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
 import { isBefore, startOfDay } from "date-fns";
 import { useAppSelector } from "@/lib/hooks";
-import { useGetOrganizationById } from "@/features/organization/useOrganization";
+import { useOrganizationMembers } from "@/features/organization/useOrganization";
 import { useGetHolidays } from "@/features/holidays/useHolidays";
 import { queryClient } from "@/features/root/Providers";
 import { useGetMyLeaveBalances, useAddLeave } from "../../useMyLeaves";
@@ -45,13 +45,14 @@ export function RequestLeaveSheet({
 
   const { data: balancesData, isLoading: balancesLoading } =
     useGetMyLeaveBalances();
-  const { data: orgData, isLoading: orgLoading } =
-    useGetOrganizationById(orgId);
+
+  const { data: orgMembers, isLoading: isOrgMembersLoading } =
+    useOrganizationMembers(orgId);
   const { data: holidaysData, isLoading: holidaysLoading } =
     useGetHolidays(orgId);
 
   const balances = balancesData?.data ?? [];
-  const orgUsers = orgData?.data?.users ?? [];
+  const orgUsers = orgMembers?.data ?? [];
   const holidays = holidaysData?.data ?? [];
 
   const {
@@ -127,7 +128,7 @@ export function RequestLeaveSheet({
     );
   };
 
-  const isLoading = balancesLoading || orgLoading || holidaysLoading;
+  const isLoading = balancesLoading || isOrgMembersLoading || holidaysLoading;
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
