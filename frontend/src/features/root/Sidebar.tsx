@@ -23,7 +23,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useState, useMemo } from "react";
-import { useAuth } from "../auth/useAuth";
+import { useAuth, useLogout } from "../auth/useAuth";
 import { queryClient } from "./Providers";
 
 interface SidebarProps {
@@ -87,12 +87,16 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
     () => allLinks.filter((link) => link.show),
     [allLinks]
   );
+  const { mutate: logout, isPending } = useLogout();
 
   const handleLogout = () => {
-    dispatch.logout();
-    queryClient.clear();
-    onClose();
-    navigate("/login", { replace: true });
+    logout(undefined, {
+      onSuccess: () => {
+        dispatch.auth.clearUser();
+        queryClient.clear();
+        navigate("/login", { replace: true });
+      },
+    });
   };
 
   return (
@@ -173,7 +177,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
               onClick={handleLogout}
               className="bg-destructive hover:bg-destructive/90"
             >
-              Logout
+              {isPending ? "Logging out" : "Logout"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

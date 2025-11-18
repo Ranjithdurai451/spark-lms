@@ -1,4 +1,3 @@
-// features/organization/components/InviteDialog.tsx
 import { useState, useEffect } from "react";
 import {
   Dialog,
@@ -25,7 +24,7 @@ import type { OrganizationMember, Role } from "@/lib/types";
 interface InviteDialogProps {
   open: boolean;
   onOpenChange: (current: boolean) => void;
-  members: OrganizationMember[];
+  members?: OrganizationMember[];
 }
 export function InviteDialog({
   open,
@@ -41,11 +40,10 @@ export function InviteDialog({
   const [success, setSuccess] = useState(false);
 
   const { mutate: inviteMember, isPending } = useInviteMember();
-
   useEffect(() => {
-    if (formData.managerId === "none" && members.length > 0) {
+    if (formData.managerId === "none" && members && members?.length > 0) {
       const firstManager =
-        members.find((m: any) => m.role === "MANAGER") || members[0];
+        members?.find((m: any) => m.role === "MANAGER") || members[0];
       setFormData((prev) => ({ ...prev, managerId: String(firstManager.id) }));
     }
   }, [members, formData.managerId]);
@@ -167,7 +165,7 @@ export function InviteDialog({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">None</SelectItem>
-                  {members.map((m: any) => (
+                  {members?.map((m: any) => (
                     <SelectItem key={m.id} value={m.id}>
                       {m.username}
                     </SelectItem>

@@ -1,4 +1,3 @@
-// features/organization/components/EditMemberDialog.tsx
 import { useState, useEffect } from "react";
 import {
   Dialog,
@@ -25,7 +24,7 @@ import type { OrganizationMember, Role } from "@/lib/types";
 interface EditMemberDialogProps {
   open: boolean;
   onOpenChange: (current: boolean) => void;
-  members: OrganizationMember[];
+  members?: OrganizationMember[];
   member: OrganizationMember;
 }
 
@@ -151,7 +150,7 @@ export function EditMemberDialog({
               <SelectContent>
                 <SelectItem value="none">None</SelectItem>
                 {members
-                  .filter((m) => m.id !== formData.id)
+                  ?.filter((m) => m.id !== formData.id)
                   .map((m) => (
                     <SelectItem key={m.id} value={m.id}>
                       {m.username} ({m.role})

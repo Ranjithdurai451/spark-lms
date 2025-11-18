@@ -47,13 +47,19 @@ export function RequestLeaveSheet({
     useGetMyLeaveBalances();
 
   const { data: orgMembers, isLoading: isOrgMembersLoading } =
-    useOrganizationMembers(orgId);
-  const { data: holidaysData, isLoading: holidaysLoading } =
-    useGetHolidays(orgId);
+    useOrganizationMembers(orgId, {
+      getAll: true,
+    });
+  const { data: holidaysData, isLoading: holidaysLoading } = useGetHolidays(
+    orgId,
+    {
+      getAll: true,
+    }
+  );
 
   const balances = balancesData?.data ?? [];
-  const orgUsers = orgMembers?.data ?? [];
-  const holidays = holidaysData?.data ?? [];
+  const orgUsers = orgMembers?.data.users ?? [];
+  const holidays = holidaysData?.data.holidays ?? [];
 
   const {
     form,

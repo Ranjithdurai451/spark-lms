@@ -1,4 +1,3 @@
-// features/dashboard/components/ViewHolidaysDialog.tsx
 import { useMemo, useState } from "react";
 import {
   Dialog,

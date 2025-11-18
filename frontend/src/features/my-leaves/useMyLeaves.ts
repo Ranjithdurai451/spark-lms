@@ -1,25 +1,29 @@
-// features/leaves/useLeaves.ts
+// features/my-leaves/useMyLeaves.ts
 import { useQuery } from "@tanstack/react-query";
 import { useApiMutation } from "@/lib/hooks";
-import LeaveService from "./MyleavesService";
 import type { AxiosError } from "axios";
-import { useMemo } from "react";
 import type { ApiResponse } from "@/features/auth/authService";
-import type { Leave, LeaveBalance, MyLeaveStats } from "./MyleavesService";
+import LeaveService, {
+  type MyLeaveFilterParams,
+  type MyLeavesResponse,
+  type MyLeaveStats,
+  type LeaveBalance,
+} from "./MyleavesService";
 
-// Get my leaves (for employees)
-export const useGetMyLeaves = () =>
-  useQuery<ApiResponse<Leave[]>, AxiosError>({
-    queryKey: ["my-leaves"],
-    queryFn: () => LeaveService.getMyLeaves(),
+// Get my leaves with filters
+export const useGetMyLeaves = (params?: MyLeaveFilterParams) =>
+  useQuery<MyLeavesResponse, AxiosError>({
+    queryKey: ["my-leaves", params],
+    queryFn: () => LeaveService.getMyLeaves(params),
   });
 
-// Get my leave stats (backend calculated!)
+// Get my leave stats
 export const useGetMyLeaveStats = () =>
   useQuery<ApiResponse<MyLeaveStats>, AxiosError>({
     queryKey: ["my-leave-stats"],
     queryFn: () => LeaveService.getMyLeaveStats(),
   });
+
 // Get my leave balances
 export const useGetMyLeaveBalances = () =>
   useQuery<ApiResponse<LeaveBalance[]>, AxiosError>({
@@ -32,12 +36,3 @@ export const useAddLeave = () => useApiMutation(LeaveService.create);
 
 // Cancel leave (only for pending leaves)
 export const useCancelLeave = () => useApiMutation(LeaveService.cancelLeave);
-
-export function useMyLeaveFilters(leaves: Leave[], activeTab: string) {
-  const filteredLeaves = useMemo(() => {
-    return activeTab === "all"
-      ? leaves
-      : leaves.filter((l) => l.status.toLowerCase() === activeTab);
-  }, [leaves, activeTab]);
-  return { filteredLeaves };
-}

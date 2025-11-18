@@ -1,5 +1,3 @@
-// src/features/organization/organizationService.ts
-
 import { api } from "@/config/axios";
 import type { ApiResponse } from "@/features/auth/authService";
 import type {
@@ -9,11 +7,40 @@ import type {
   RoleStats,
 } from "@/lib/types";
 
+export interface PaginationParams {
+  page?: number;
+  limit?: number;
+  search?: string;
+  role?: Role;
+  sortBy?: string;
+  sortOrder?: "asc" | "desc";
+  getAll?: boolean;
+}
+
+export interface PaginatedResponse<T> {
+  message: string;
+  data: {
+    users: T;
+    pagination?: {
+      total: number;
+      page: number;
+      limit: number;
+      totalPages: number;
+      getAll: boolean;
+    };
+  };
+}
+
 class OrganizationService {
   static async getMembers(
-    organizationId: string
-  ): Promise<ApiResponse<OrganizationMember[]>> {
-    const { data } = await api.get(`/organizations/${organizationId}/members`);
+    organizationId: string,
+    params: PaginationParams
+  ): Promise<PaginatedResponse<OrganizationMember[]>> {
+    console.log("params", params.getAll);
+    const { data } = await api.get(`/organizations/${organizationId}/members`, {
+      params,
+    });
+    console.log("data", data);
     return data;
   }
 
@@ -25,7 +52,7 @@ class OrganizationService {
     );
     return data;
   }
-  /* ---------- Get Organization by ID ---------- */
+
   static async getOrganizationById(
     organizationId: string
   ): Promise<ApiResponse<FullOrganization>> {
@@ -33,7 +60,6 @@ class OrganizationService {
     return data;
   }
 
-  /* ---------- Invite Member ---------- */
   static async inviteMember(payload: {
     invitedEmail: string;
     role: Role;
@@ -43,7 +69,6 @@ class OrganizationService {
     return data;
   }
 
-  /* ---------- Update User ---------- */
   static async updateUser(payload: {
     id: string;
     username?: string;
@@ -58,7 +83,6 @@ class OrganizationService {
     return data;
   }
 
-  /* ---------- Delete User ---------- */
   static async deleteUser(userId: string): Promise<ApiResponse> {
     const { data } = await api.delete(`/organizations/members/${userId}`);
     return data;

@@ -1,4 +1,3 @@
-// src/features/leave-policy/useLeavePolicy.ts
 import { useQuery } from "@tanstack/react-query";
 import { useApiMutation } from "@/lib/hooks";
 import type { AxiosError } from "axios";
@@ -16,7 +15,7 @@ export const useGetLeavePolicies = (organizationId: string) =>
     enabled: !!organizationId,
   });
 
-/* GET stats (stats endpoint) */
+/* GET stats  */
 export const useGetLeavePolicyStats = (organizationId: string) =>
   useQuery<ApiResponse<LeavePolicyStats>, AxiosError<ApiResponse>>({
     queryKey: ["leave-policy-stats", organizationId],
@@ -24,7 +23,7 @@ export const useGetLeavePolicyStats = (organizationId: string) =>
     enabled: !!organizationId,
   });
 
-/* CREATE/UPDATE/DELETE (unchanged from your impl) */
+/* CREATE/UPDATE/DELETE  */
 export const useCreateLeavePolicy = () =>
   useApiMutation(LeavePolicyService.create);
 export const useUpdateLeavePolicy = () =>

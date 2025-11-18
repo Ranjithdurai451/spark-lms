@@ -1,4 +1,3 @@
-// src/features/holidays/holidayService.ts
 import { api } from "@/config/axios";
 import type { ApiResponse } from "@/features/auth/authService";
 
@@ -28,13 +27,41 @@ export interface HolidayPayload {
   organizationId: string;
 }
 
+export interface HolidayPaginationParams {
+  page?: number;
+  limit?: number;
+  search?: string;
+  type?: "PUBLIC" | "COMPANY" | "all";
+  sortBy?: string;
+  sortOrder?: "asc" | "desc";
+  getAll?: boolean;
+}
+
+export interface PaginatedHolidayResponse {
+  message: string;
+  data: {
+    holidays: Holiday[];
+    pagination?: {
+      total: number;
+      page: number;
+      limit: number;
+      totalPages: number;
+      hasMore: boolean;
+    };
+  };
+}
+
 class HolidayService {
-  static async getHolidays(orgId: string): Promise<ApiResponse<Holiday[]>> {
+  static async getHolidays(
+    orgId: string,
+    params: HolidayPaginationParams
+  ): Promise<PaginatedHolidayResponse> {
     const { data } = await api.get(`/holidays`, {
-      params: { organizationId: orgId },
+      params: { organizationId: orgId, ...params },
     });
     return data;
   }
+
   static async getHolidayStats(
     orgId: string
   ): Promise<ApiResponse<HolidayStats>> {

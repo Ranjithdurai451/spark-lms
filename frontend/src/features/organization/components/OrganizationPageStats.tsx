@@ -1,5 +1,3 @@
-// src/features/organization/components/OrganizationPageStats.tsx
-
 import { Card, CardContent } from "@/components/ui/card";
 import { TrendingUp, Users2 } from "lucide-react";
 import type { RoleStats } from "@/lib/types";

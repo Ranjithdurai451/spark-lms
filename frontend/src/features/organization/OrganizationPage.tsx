@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,11 +7,10 @@ import { EditMemberDialog } from "./components/EditMemberDialog";
 import { InviteDialog } from "./components/InviteDialog";
 import {
   useDeleteUser,
-  useFilteredMembers,
   useMemberStats,
   useOrganizationMembers,
 } from "./useOrganization";
-import { OrganizationSkeleton } from "./components/OrganizationSkeleton";
+import { PaginationControls } from "../common/components/PaginationControls";
 import { queryClient } from "../root/Providers";
 import ErrorPage from "../common/components/ErrorPage";
 import { PageHeader } from "../common/components/PageHeader";
@@ -23,10 +22,15 @@ import { getRoleColor } from "./utils";
 import { useAuth } from "../auth/useAuth";
 import { DeleteConfirmDialog } from "../common/components/DeleteConfirmDialog";
 import type { OrganizationMember, RoleStats } from "@/lib/types";
+import { useDebounce } from "../common/hooks/useDebounce";
+import { StatsSkeleton } from "../common/components/skeleton-loaders.tsx/StatsSkeleton";
+import { ContentSkeleton } from "../common/components/skeleton-loaders.tsx/ContentSkeleton";
 
 export function OrganizationPage() {
   const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
   const [searchQuery, setSearchQuery] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
   const [editingMember, setEditingMember] = useState<OrganizationMember | null>(
     null
   );
@@ -36,20 +40,33 @@ export function OrganizationPage() {
   const { user, hasAccess, isCurrentUser } = useAuth();
   const orgId = user?.organization?.id ?? "";
 
+  const debouncedSearch = useDebounce(searchQuery, 1000);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [debouncedSearch]);
+
   const {
-    data: membersData,
-    isLoading,
+    data: membersResponse,
+    isLoading: membersLoading,
     isError,
     error,
     refetch,
     isFetching,
-  } = useOrganizationMembers(orgId);
+  } = useOrganizationMembers(orgId, {
+    page: currentPage,
+    limit: pageSize,
+    search: debouncedSearch,
+  });
+  const { data: fullMembersResponse } = useOrganizationMembers(orgId, {
+    getAll: true,
+  });
+
   const { data: statsData, isLoading: statsLoading } = useMemberStats(orgId);
 
-  const members = membersData?.data ?? [];
+  const members = membersResponse?.data.users ?? [];
+  const pagination = membersResponse?.data.pagination;
   const roleStats: RoleStats | undefined = statsData?.data;
-
-  const filteredMembers = useFilteredMembers(members, searchQuery);
 
   const canManage = hasAccess(["ADMIN", "HR"]);
 
@@ -58,11 +75,19 @@ export function OrganizationPage() {
     queryClient.invalidateQueries(["organization-member-stats", orgId] as any);
   };
 
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const handlePageSizeChange = (size: number) => {
+    setPageSize(size);
+    setCurrentPage(1);
+  };
+
   const { mutate: deleteUser } = useDeleteUser();
 
-  if (isLoading || statsLoading) return <OrganizationSkeleton />;
-
-  if (isError)
+  if (isError) {
     return (
       <ErrorPage
         message={
@@ -71,11 +96,11 @@ export function OrganizationPage() {
         refetch={refetch}
       />
     );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20">
       <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6">
-        {/* Header (replace with your static org name/code as fetched from profile/elsewhere) */}
         <PageHeader
           title={user?.organization?.organizationName || "Organization"}
           isLoading={isFetching || statsLoading}
@@ -107,9 +132,12 @@ export function OrganizationPage() {
           }
         />
 
-        <OrganizationPageStats roleStats={roleStats} />
+        {statsLoading ? (
+          <StatsSkeleton />
+        ) : (
+          <OrganizationPageStats roleStats={roleStats} />
+        )}
 
-        {/* Main Content Card */}
         <Card className="border-none shadow-xl">
           <CardHeader className="border-b bg-muted/30">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -117,7 +145,6 @@ export function OrganizationPage() {
                 <h2 className="text-lg font-semibold mb-2">
                   Employee Directory
                 </h2>
-                {/* Search Bar */}
                 <div className="relative max-w-md">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
@@ -125,20 +152,28 @@ export function OrganizationPage() {
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="pl-9 pr-9 h-9 text-sm"
+                    disabled={membersLoading}
                   />
                   {searchQuery && (
                     <button
                       onClick={() => setSearchQuery("")}
                       className="absolute right-3 top-1/2 -translate-y-1/2 hover:bg-muted rounded-full p-0.5"
+                      disabled={membersLoading}
                     >
                       <X className="h-3.5 w-3.5 text-muted-foreground" />
                     </button>
                   )}
                 </div>
                 <p className="text-xs text-muted-foreground mt-2">
-                  {filteredMembers.length}{" "}
-                  {filteredMembers.length === 1 ? "member" : "members"}
-                  {searchQuery && ` found for "${searchQuery}"`}
+                  {membersLoading ? (
+                    "Loading members..."
+                  ) : (
+                    <>
+                      {pagination?.total ?? 0}{" "}
+                      {pagination?.total === 1 ? "member" : "members"}
+                      {searchQuery && ` found for "${searchQuery}"`}
+                    </>
+                  )}
                 </p>
               </div>
               <ViewModeToggle
@@ -149,7 +184,9 @@ export function OrganizationPage() {
           </CardHeader>
 
           <CardContent className="p-0">
-            {filteredMembers.length === 0 ? (
+            {membersLoading ? (
+              <ContentSkeleton viewMode={viewMode} />
+            ) : members.length === 0 ? (
               <div className="py-16 text-center">
                 <div className="mx-auto w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
                   {searchQuery ? (
@@ -188,7 +225,7 @@ export function OrganizationPage() {
               </div>
             ) : viewMode === "grid" ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-6">
-                {filteredMembers.map((member) => (
+                {members.map((member) => (
                   <MemberCard
                     key={member.id}
                     member={member}
@@ -225,7 +262,7 @@ export function OrganizationPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredMembers.map((member) => (
+                    {members.map((member) => (
                       <MemberTableRow
                         key={member.id}
                         member={member}
@@ -240,15 +277,25 @@ export function OrganizationPage() {
                 </table>
               </div>
             )}
+
+            {!membersLoading && pagination && pagination.totalPages > 1 && (
+              <PaginationControls
+                currentPage={currentPage}
+                totalPages={pagination.totalPages}
+                pageSize={pageSize}
+                totalItems={pagination.total}
+                onPageChange={handlePageChange}
+                onPageSizeChange={handlePageSizeChange}
+              />
+            )}
           </CardContent>
         </Card>
 
-        {/* Dialogs */}
         {canManage && (
           <InviteDialog
             open={isInviteOpen}
             onOpenChange={setIsInviteOpen}
-            members={members}
+            members={fullMembersResponse?.data?.users}
           />
         )}
 
@@ -260,7 +307,7 @@ export function OrganizationPage() {
               handleRefetch();
             }}
             member={editingMember}
-            members={members}
+            members={fullMembersResponse?.data?.users}
           />
         )}
 

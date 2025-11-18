@@ -1,4 +1,4 @@
-// features/leaves/leaveService.ts
+// features/my-leaves/MyLeavesService.ts
 import { api } from "@/config/axios";
 import type { ApiResponse } from "@/features/auth/authService";
 
@@ -27,6 +27,7 @@ export interface Leave {
   createdAt: string;
   updatedAt: string;
 }
+
 export interface MyLeaveStats {
   total: number;
   pending: number;
@@ -62,15 +63,33 @@ export interface LeaveBalance {
   };
 }
 
+export interface MyLeaveFilterParams {
+  status?: "all" | "pending" | "approved" | "rejected" | "cancelled";
+  sortBy?: string;
+  sortOrder?: "asc" | "desc";
+  getAll?: boolean;
+}
+
+export interface MyLeavesResponse {
+  message: string;
+  data: {
+    leaves: Leave[];
+  };
+}
+
 class LeaveService {
-  static async getMyLeaves(): Promise<ApiResponse<Leave[]>> {
-    const { data } = await api.get(`/leaves/my`);
+  static async getMyLeaves(
+    params?: MyLeaveFilterParams
+  ): Promise<MyLeavesResponse> {
+    const { data } = await api.get(`/leaves/my`, { params });
     return data;
   }
+
   static async getMyLeaveStats(): Promise<ApiResponse<MyLeaveStats>> {
     const { data } = await api.get(`/leaves/my/stats`);
     return data;
   }
+
   static async create(
     payload: CreateLeaveInput & { organizationId: string }
   ): Promise<ApiResponse<Leave>> {

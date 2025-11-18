@@ -46,6 +46,7 @@ export const InvitedAccountCreatePage = () => {
         onSuccess: (res) => {
           if (res.data?.user) {
             dispatch.auth.setUser(res.data?.user);
+            queryClient.invalidateQueries(["sessions"] as any);
             navigate("/in");
           } else {
             setErrorMsg("Something went wrong. Please try again.");

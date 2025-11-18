@@ -4,13 +4,73 @@ import { prisma } from "../db";
 export const getHolidays = async (req: Request, res: Response) => {
   try {
     const organizationId = req.user.organization.id;
-    const holidays = await prisma.holiday.findMany({
-      where: { organizationId },
-      orderBy: { date: "asc" },
-    });
+    const {
+      page = "1",
+      limit = "20",
+      search = "",
+      type, // "PUBLIC" or "COMPANY"
+      sortBy = "date",
+      sortOrder = "asc",
+      getAll = "true",
+    } = req.query;
+
+    // Get all mode: return all without pagination
+    if (getAll == "true") {
+      const holidays = await prisma.holiday.findMany({
+        where: { organizationId },
+        orderBy: { date: "asc" },
+      });
+
+      return res.status(200).json({
+        message: "Holidays fetched successfully.",
+        data: {
+          holidays,
+        },
+      });
+    }
+
+    // Paginated mode with filters
+    const pageNum = parseInt(page as string);
+    const limitNum = parseInt(limit as string);
+    const skip = (pageNum - 1) * limitNum;
+
+    // Build where clause
+    const where: any = { organizationId };
+
+    if (search) {
+      where.OR = [
+        { name: { contains: search as string, mode: "insensitive" } },
+        { description: { contains: search as string, mode: "insensitive" } },
+      ];
+    }
+
+    if (type && (type === "PUBLIC" || type === "COMPANY")) {
+      where.type = type;
+    }
+
+    // Execute queries in parallel
+    const [total, holidays] = await prisma.$transaction([
+      prisma.holiday.count({ where }),
+      prisma.holiday.findMany({
+        where,
+        skip,
+        take: limitNum,
+        orderBy: { [sortBy as string]: sortOrder },
+      }),
+    ]);
+
     res.status(200).json({
       message: "Holidays fetched successfully.",
-      data: holidays,
+      data: {
+        holidays,
+        pagination: {
+          total,
+          page: pageNum,
+          limit: limitNum,
+          totalPages: Math.ceil(total / limitNum),
+          hasMore: pageNum * limitNum < total,
+        },
+      },
     });
   } catch (error) {
     console.error("getHolidays error:", error);

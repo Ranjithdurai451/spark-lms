@@ -1,8 +1,6 @@
-// src/features/leave-policy/leavePolicyService.ts
 import { api } from "@/config/axios";
 import type { ApiResponse } from "@/features/auth/authService";
 
-// src/features/leave-policy/types.ts
 export interface LeavePolicy {
   id: string;
   name: string;

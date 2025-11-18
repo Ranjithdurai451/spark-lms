@@ -1,5 +1,6 @@
 import bcrypt from "bcryptjs";
 import { prisma } from "../db";
+import { Role } from "@prisma/client";
 
 export async function main() {
   console.log("🌱 Seeding database...");
@@ -49,7 +50,9 @@ export async function main() {
   });
 
   const employeePassword = await bcrypt.hash("Employee@123", 10);
-  const employees = await prisma.user.createMany({
+
+  // Initial employees
+  await prisma.user.createMany({
     data: [
       {
         email: "bob@lumel.com",
@@ -94,11 +97,21 @@ export async function main() {
     ],
   });
 
-  //   console.log({
-  //     organization,
-  //     admin,
-  //     hr1,
-  //     manager1,
-  //     employeesCount: employees.count,
-  //   });
+  // Generate 50 additional employees
+  const managers = [hr1.id, manager1.id];
+
+  const additionalEmployees = Array.from({ length: 50 }).map((_, i) => ({
+    email: `employee${i + 1}@lumel.com`,
+    username: `Employee${i + 1}`,
+    passwordHash: employeePassword,
+    role: "EMPLOYEE" as Role,
+    organizationId: organization.id,
+    managerId: managers[Math.floor(Math.random() * managers.length)],
+  }));
+
+  await prisma.user.createMany({
+    data: additionalEmployees,
+  });
+
+  console.log("✅ Added 50 more employees!");
 }

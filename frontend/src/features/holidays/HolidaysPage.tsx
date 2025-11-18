@@ -1,5 +1,4 @@
-// features/holidays/HolidaysPage.tsx
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,62 +10,92 @@ import { EditHolidayDialog } from "./components/EditHolidayDialog";
 import { HolidayCard } from "./components/HolidayCard";
 import { HolidayTableRow } from "./components/HolidayTableRow";
 import { HolidayStats } from "./components/HolidayStats";
+import { PaginationControls } from "../common/components/PaginationControls";
 import {
   useDeleteHoliday,
   useGetHolidays,
   useGetHolidayStats,
-  useHolidaysFilters,
 } from "./useHolidays";
 import { queryClient } from "../root/Providers";
-import { HolidaySkeleton } from "./components/HolidaysSkeleton";
 import ErrorPage from "../common/components/ErrorPage";
 import { PageHeader } from "../common/components/PageHeader";
 import { ViewModeToggle } from "../common/components/ViewModeToggle";
 import { useAuth } from "../auth/useAuth";
 import { DeleteConfirmDialog } from "../common/components/DeleteConfirmDialog";
+import { useDebounce } from "../common/hooks/useDebounce";
+import { StatsSkeleton } from "../common/components/skeleton-loaders.tsx/StatsSkeleton";
+import { ContentSkeleton } from "../common/components/skeleton-loaders.tsx/ContentSkeleton";
 
 export function HolidaysPage() {
-  const [activeTab, setActiveTab] = useState("all");
+  const [activeTab, setActiveTab] = useState<"all" | "PUBLIC" | "COMPANY">(
+    "all"
+  );
   const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
   const [searchQuery, setSearchQuery] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [editingHoliday, setEditingHoliday] = useState<any | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const { user, hasAccess } = useAuth();
   const orgId = user?.organization?.id ?? "";
-  const { data, isLoading, isError, refetch, isFetching } =
-    useGetHolidays(orgId);
+
+  const debouncedSearch = useDebounce(searchQuery, 1000);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [debouncedSearch, activeTab]);
+
+  const {
+    data: holidaysResponse,
+    isLoading: holidaysLoading,
+    isError,
+    refetch,
+    isFetching,
+  } = useGetHolidays(orgId, {
+    page: currentPage,
+    limit: pageSize,
+    search: debouncedSearch,
+    type: activeTab,
+  });
+
   const { data: statsData, isLoading: statsLoading } =
     useGetHolidayStats(orgId);
 
-  const holidays = data?.data ?? [];
+  const holidays = holidaysResponse?.data?.holidays ?? [];
+  const pagination = holidaysResponse?.data?.pagination;
   const stats = statsData?.data;
-
-  const { filteredHolidays } = useHolidaysFilters(
-    holidays,
-    activeTab,
-    searchQuery
-  );
 
   const handleRefetch = () => {
     queryClient.invalidateQueries(["holidays", orgId] as any);
+    queryClient.invalidateQueries(["holiday-stats", orgId] as any);
   };
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const handlePageSizeChange = (size: number) => {
+    setPageSize(size);
+    setCurrentPage(1);
+  };
+
   const canManage = hasAccess(["ADMIN", "HR"]);
   const { mutate: deleteHoliday } = useDeleteHoliday();
 
-  if (isLoading || statsLoading) return <HolidaySkeleton />;
-  if (isError)
+  if (isError) {
     return <ErrorPage message="Failed to load holidays." refetch={refetch} />;
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20">
       <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6">
-        {/* Header */}
         <PageHeader
           title="Holidays"
           description="Manage organization and public holidays"
-          isLoading={isFetching}
+          isLoading={isFetching || statsLoading}
           action={
             canManage && (
               <Button
@@ -80,9 +109,12 @@ export function HolidaysPage() {
           }
         />
 
-        <HolidayStats stats={stats} />
+        {statsLoading ? (
+          <StatsSkeleton count={3} />
+        ) : (
+          <HolidayStats stats={stats} />
+        )}
 
-        {/* Main Content Card */}
         <Card className="border-none shadow-xl">
           <CardHeader className="border-b bg-muted/30">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -95,21 +127,20 @@ export function HolidaysPage() {
                   />
                 </div>
 
-                {/* Tabs + Search */}
                 <div className="flex flex-col sm:flex-row gap-3">
                   <Tabs
                     value={activeTab}
-                    onValueChange={setActiveTab}
+                    onValueChange={(value: any) => setActiveTab(value)}
                     className="w-full sm:w-auto"
                   >
                     <TabsList className="grid w-full sm:w-auto grid-cols-3 bg-background">
                       <TabsTrigger value="all" className="text-xs">
                         All
                       </TabsTrigger>
-                      <TabsTrigger value="public" className="text-xs">
+                      <TabsTrigger value="PUBLIC" className="text-xs">
                         Public
                       </TabsTrigger>
-                      <TabsTrigger value="company" className="text-xs">
+                      <TabsTrigger value="COMPANY" className="text-xs">
                         Company
                       </TabsTrigger>
                     </TabsList>
@@ -123,11 +154,13 @@ export function HolidaysPage() {
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       className="pl-9 pr-9 h-9 text-sm"
+                      disabled={holidaysLoading}
                     />
                     {searchQuery && (
                       <button
                         onClick={() => setSearchQuery("")}
                         className="absolute right-3 top-1/2 -translate-y-1/2 hover:bg-muted rounded-full p-0.5"
+                        disabled={holidaysLoading}
                       >
                         <X className="h-3.5 w-3.5 text-muted-foreground" />
                       </button>
@@ -136,16 +169,24 @@ export function HolidaysPage() {
                 </div>
 
                 <p className="text-xs text-muted-foreground mt-2">
-                  {filteredHolidays.length}{" "}
-                  {filteredHolidays.length === 1 ? "holiday" : "holidays"}
-                  {searchQuery && ` found for "${searchQuery}"`}
+                  {holidaysLoading ? (
+                    "Loading holidays..."
+                  ) : (
+                    <>
+                      {pagination?.total ?? 0}{" "}
+                      {pagination?.total === 1 ? "holiday" : "holidays"}
+                      {searchQuery && ` found for "${searchQuery}"`}
+                    </>
+                  )}
                 </p>
               </div>
             </div>
           </CardHeader>
 
           <CardContent className="p-0">
-            {filteredHolidays.length === 0 ? (
+            {holidaysLoading ? (
+              <ContentSkeleton viewMode={viewMode} />
+            ) : holidays.length === 0 ? (
               <div className="py-16 text-center">
                 <div className="mx-auto w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
                   {searchQuery ? (
@@ -183,9 +224,8 @@ export function HolidaysPage() {
                 ) : null}
               </div>
             ) : viewMode === "grid" ? (
-              /* Grid View */
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-6">
-                {filteredHolidays.map((holiday) => (
+                {holidays.map((holiday) => (
                   <HolidayCard
                     key={holiday.id}
                     holiday={holiday}
@@ -196,7 +236,6 @@ export function HolidaysPage() {
                 ))}
               </div>
             ) : (
-              /* Table View */
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead className="bg-muted/50 border-b">
@@ -219,7 +258,7 @@ export function HolidaysPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredHolidays.map((holiday) => (
+                    {holidays.map((holiday) => (
                       <HolidayTableRow
                         key={holiday.id}
                         holiday={holiday}
@@ -231,6 +270,18 @@ export function HolidaysPage() {
                   </tbody>
                 </table>
               </div>
+            )}
+
+            {/* Pagination - Show only when not loading and has data */}
+            {!holidaysLoading && pagination && pagination.totalPages > 1 && (
+              <PaginationControls
+                currentPage={currentPage}
+                totalPages={pagination.totalPages}
+                pageSize={pageSize}
+                totalItems={pagination.total}
+                onPageChange={handlePageChange}
+                onPageSizeChange={handlePageSizeChange}
+              />
             )}
           </CardContent>
         </Card>

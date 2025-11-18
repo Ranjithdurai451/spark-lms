@@ -1,4 +1,4 @@
-// features/leave-requests/leaveRequestsService.ts
+// features/leave-requests/LeaveRequestsService.ts
 import { api } from "@/config/axios";
 import type { ApiResponse } from "@/features/auth/authService";
 
@@ -35,15 +35,41 @@ export interface LeaveRequestStats {
   cancelled: number;
 }
 
+export interface LeavePaginationParams {
+  page?: number;
+  limit?: number;
+  search?: string;
+  status?: "all" | "pending" | "approved" | "rejected" | "cancelled";
+  sortBy?: string;
+  sortOrder?: "asc" | "desc";
+  getAll?: boolean;
+}
+
+export interface PaginatedLeaveResponse {
+  message: string;
+  data: {
+    leaves: LeaveRequest[];
+    pagination?: {
+      total: number;
+      page: number;
+      limit: number;
+      totalPages: number;
+      hasMore: boolean;
+    };
+  };
+}
+
 class LeaveRequestsService {
   static async getAllLeaves(
-    orgId: string
-  ): Promise<ApiResponse<LeaveRequest[]>> {
+    orgId: string,
+    params: LeavePaginationParams
+  ): Promise<PaginatedLeaveResponse> {
     const { data } = await api.get(`/leaves`, {
-      params: { organizationId: orgId },
+      params: { organizationId: orgId, ...params },
     });
     return data;
   }
+
   static async getAllLeaveStats(
     orgId: string
   ): Promise<ApiResponse<LeaveRequestStats>> {
@@ -52,6 +78,7 @@ class LeaveRequestsService {
     });
     return data;
   }
+
   static async updateLeaveStatus(
     id: string,
     status: "APPROVED" | "REJECTED"

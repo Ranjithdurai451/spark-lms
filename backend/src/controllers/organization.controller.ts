@@ -1,31 +1,100 @@
-import type { Request, Response } from "express";
 // src/server/controllers/organization.controller.ts
+import type { Request, Response } from "express";
 import { prisma } from "../db";
 import { sendMemberInviteEmail } from "../lib/helpers/mail.helper";
 
+// src/server/controllers/organization.controller.ts
 export const getOrganizationMembers = async (req: Request, res: Response) => {
   try {
     const { organizationId } = req.params;
-    const users = await prisma.user.findMany({
-      where: { organizationId },
-      orderBy: { createdAt: "desc" },
-      select: {
-        id: true,
-        username: true,
-        email: true,
-        role: true,
-        manager: {
-          select: { id: true, username: true, email: true },
+    const {
+      page = "1",
+      limit = "20",
+      search = "",
+      role,
+      sortBy = "createdAt",
+      sortOrder = "desc",
+      getAll = "false",
+    } = req.query;
+    if (getAll == "true") {
+      const users = await prisma.user.findMany({
+        where: { organizationId },
+        orderBy: { username: "asc" },
+        select: {
+          id: true,
+          username: true,
+          email: true,
+          role: true,
+        },
+      });
+
+      return res.status(200).json({
+        message: "Members fetched.",
+        data: {
+          users,
+        },
+      });
+    }
+
+    const pageNum = parseInt(page as string);
+    const limitNum = parseInt(limit as string);
+    const skip = (pageNum - 1) * limitNum;
+
+    const where: any = { organizationId };
+
+    if (search) {
+      where.OR = [
+        { username: { contains: search as string, mode: "insensitive" } },
+        { email: { contains: search as string, mode: "insensitive" } },
+        {
+          manager: {
+            username: { contains: search as string, mode: "insensitive" },
+          },
+        },
+      ];
+    }
+
+    if (role) {
+      where.role = role;
+    }
+
+    const [total, users] = await prisma.$transaction([
+      prisma.user.count({ where }),
+      prisma.user.findMany({
+        where,
+        skip,
+        take: limitNum,
+        orderBy: { [sortBy as string]: sortOrder },
+        select: {
+          id: true,
+          username: true,
+          email: true,
+          role: true,
+          manager: {
+            select: { id: true, username: true, email: true },
+          },
+        },
+      }),
+    ]);
+
+    return res.status(200).json({
+      message: "Members fetched with pagination.",
+      data: {
+        users,
+        pagination: {
+          total,
+          page: pageNum,
+          limit: limitNum,
+          totalPages: Math.ceil(total / limitNum),
+          hasMore: pageNum * limitNum < total,
         },
       },
     });
-    return res.status(200).json({ message: "Members fetched.", data: users });
   } catch (error) {
     res.status(500).json({ message: "Failed to fetch members." });
   }
 };
 
-// Members stats endpoint
 export const getOrganizationMemberStats = async (
   req: Request,
   res: Response

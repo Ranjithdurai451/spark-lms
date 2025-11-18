@@ -411,12 +411,49 @@ export const checkAuth = async (req: Request, res: Response) => {
 /*                                 Logout                                     */
 /* -------------------------------------------------------------------------- */
 export const logout = (req: Request, res: Response) => {
-  res.clearCookie("auth-token", {
-    httpOnly: true,
-    secure: process.env.NODE_ENV !== "development",
-    sameSite: process.env.NODE_ENV !== "development" ? "none" : "lax",
-  });
-  res.json({ message: "Logged out successfully." });
+  try {
+    const currentToken = req.cookies["auth-token"];
+    const sessionsData = req.cookies["user-sessions"];
+
+    // Clear main auth token
+    res.clearCookie("auth-token", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV !== "development",
+      sameSite: process.env.NODE_ENV !== "development" ? "none" : "lax",
+    });
+
+    // If no sessions cookie, just return success
+    if (!sessionsData) {
+      return res.json({ message: "Logged out successfully." });
+    }
+
+    let sessions: StoredSession[] = JSON.parse(sessionsData);
+
+    // Remove the session whose token matches the current auth-token
+    const updatedSessions = sessions.filter((s) => s.token !== currentToken);
+
+    if (updatedSessions.length === 0) {
+      // Clear whole cookie if no sessions left
+      res.clearCookie("user-sessions", {
+        httpOnly: true,
+        secure: process.env.NODE_ENV !== "development",
+        sameSite: process.env.NODE_ENV !== "development" ? "none" : "lax",
+      });
+    } else {
+      // Update sessions cookie
+      res.cookie("user-sessions", JSON.stringify(updatedSessions), {
+        httpOnly: true,
+        secure: process.env.NODE_ENV !== "development",
+        sameSite: process.env.NODE_ENV !== "development" ? "none" : "lax",
+        maxAge: 30 * 24 * 60 * 60 * 1000,
+      });
+    }
+
+    return res.json({ message: "Logged out successfully." });
+  } catch (err) {
+    console.error("logout error:", err);
+    res.status(500).json({ message: "Failed to logout" });
+  }
 };
 
 /* -------------------------------------------------------------------------- */

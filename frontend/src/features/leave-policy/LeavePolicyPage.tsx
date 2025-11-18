@@ -1,4 +1,3 @@
-// features/leave-policy/LeavePolicyPage.tsx
 import { useState } from "react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,12 +13,13 @@ import {
   useGetLeavePolicyStats,
 } from "./useLeavePolicy";
 import { queryClient } from "../root/Providers";
-import { LeavePolicySkeleton } from "./components/LeavePolicySkeleton";
 import ErrorPage from "../common/components/ErrorPage";
 import { PageHeader } from "../common/components/PageHeader";
 import { ViewModeToggle } from "../common/components/ViewModeToggle";
 import { useAuth } from "../auth/useAuth";
 import { DeleteConfirmDialog } from "../common/components/DeleteConfirmDialog";
+import { StatsSkeleton } from "../common/components/skeleton-loaders.tsx/StatsSkeleton";
+import { ContentSkeleton } from "../common/components/skeleton-loaders.tsx/ContentSkeleton";
 
 export function LeavePolicyPage() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -29,8 +29,13 @@ export function LeavePolicyPage() {
 
   const { user, hasAccess } = useAuth();
   const orgId = user?.organization?.id ?? "";
-  const { data, isLoading, isError, refetch, isFetching } =
-    useGetLeavePolicies(orgId);
+  const {
+    data,
+    isLoading: isPolicyLoading,
+    isError,
+    refetch,
+    isFetching,
+  } = useGetLeavePolicies(orgId);
   const { data: statsData, isLoading: statsLoading } =
     useGetLeavePolicyStats(orgId);
 
@@ -44,7 +49,6 @@ export function LeavePolicyPage() {
   };
   const { mutate: deletePolicy } = useDeleteLeavePolicy();
 
-  if (isLoading || statsLoading) return <LeavePolicySkeleton />;
   if (isError)
     return (
       <ErrorPage message="Failed to load leave policies." refetch={refetch} />
@@ -53,7 +57,6 @@ export function LeavePolicyPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20">
       <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6">
-        {/* Header */}
         <PageHeader
           title="Leave Policies"
           description="Manage and configure leave policies for your organization"
@@ -71,9 +74,12 @@ export function LeavePolicyPage() {
           }
         />
 
-        <PolicyStats stats={stats} />
+        {statsLoading ? (
+          <StatsSkeleton count={4} />
+        ) : (
+          <PolicyStats stats={stats} />
+        )}
 
-        {/* Main Content Card */}
         <Card className="border-none shadow-xl">
           <CardHeader className="border-b bg-muted/30">
             <div className="flex items-center justify-between">
@@ -86,7 +92,9 @@ export function LeavePolicyPage() {
           </CardHeader>
 
           <CardContent className="p-0">
-            {policies.length === 0 ? (
+            {isPolicyLoading ? (
+              <ContentSkeleton viewMode={viewMode} />
+            ) : policies.length === 0 ? (
               <div className="py-16 text-center">
                 <div className="mx-auto w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
                   <FileText className="w-8 h-8 text-muted-foreground" />

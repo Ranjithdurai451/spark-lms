@@ -10,49 +10,54 @@ import { MyLeaveCard } from "./components/MyLeaveCard";
 import { MyLeaveTableRow } from "./components/MyLeaveTableRow";
 import { MyLeaveStats } from "./components/MyLeaveStats";
 import { queryClient } from "../root/Providers";
-import { LeaveSkeleton } from "./components/LeaveSkeleton";
-import type { Leave } from "./MyleavesService";
-import {
-  useGetMyLeaves,
-  useGetMyLeaveStats,
-  useMyLeaveFilters,
-} from "./useMyLeaves";
+import { useGetMyLeaves, useGetMyLeaveStats } from "./useMyLeaves";
 import ErrorPage from "../common/components/ErrorPage";
 import { PageHeader } from "../common/components/PageHeader";
 import { ViewModeToggle } from "../common/components/ViewModeToggle";
 import { RequestLeaveSheet } from "./components/request-sheet/RequestLeaveSheet";
+import type { Leave } from "./MyleavesService";
+import { StatsSkeleton } from "../common/components/skeleton-loaders.tsx/StatsSkeleton";
+import { ContentSkeleton } from "../common/components/skeleton-loaders.tsx/ContentSkeleton";
 
 export function MyLeavesPage() {
-  const [activeTab, setActiveTab] = useState("all");
+  const [activeTab, setActiveTab] = useState<
+    "all" | "pending" | "approved" | "rejected" | "cancelled"
+  >("all");
   const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
   const [isRequestSheetOpen, setIsRequestSheetOpen] = useState(false);
   const [viewingLeave, setViewingLeave] = useState<Leave | null>(null);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
-  const { data, isLoading, isError, refetch, isFetching } = useGetMyLeaves();
+
+  const {
+    data: leavesData,
+    isLoading: leavesLoading,
+    isError,
+    refetch,
+    isFetching,
+  } = useGetMyLeaves({ status: activeTab });
+
   const { data: statsData, isLoading: statsLoading } = useGetMyLeaveStats();
 
-  const leaves = data?.data ?? [];
+  const leaves = leavesData?.data?.leaves ?? [];
   const stats = statsData?.data;
-
-  const { filteredLeaves } = useMyLeaveFilters(leaves, activeTab);
 
   const handleRefetch = () => {
     queryClient.invalidateQueries(["my-leaves"] as any);
+    queryClient.invalidateQueries(["my-leave-stats"] as any);
     queryClient.invalidateQueries(["leave-balances"] as any);
   };
 
-  if (isLoading || statsLoading) return <LeaveSkeleton />;
-  if (isError)
+  if (isError) {
     return <ErrorPage message="Failed to load your leaves" refetch={refetch} />;
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20">
       <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6">
-        {/* Header */}
         <PageHeader
           title="My Leaves"
           description="Manage your time off and track leave requests"
-          isLoading={isFetching}
+          isLoading={isFetching || statsLoading}
           action={
             <Button
               size="default"
@@ -64,15 +69,14 @@ export function MyLeavesPage() {
           }
         />
 
-        <MyLeaveStats stats={stats} />
+        {statsLoading ? <StatsSkeleton /> : <MyLeaveStats stats={stats} />}
 
-        {/* Main Content Card */}
         <Card className="border-none shadow-xl">
           <CardHeader className="border-b bg-muted/30">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
               <Tabs
                 value={activeTab}
-                onValueChange={setActiveTab}
+                onValueChange={(value: any) => setActiveTab(value)}
                 className="w-full sm:w-auto"
               >
                 <TabsList className="grid w-full sm:w-auto grid-cols-5 bg-background">
@@ -102,7 +106,9 @@ export function MyLeavesPage() {
           </CardHeader>
 
           <CardContent className="p-0">
-            {filteredLeaves.length === 0 ? (
+            {leavesLoading ? (
+              <ContentSkeleton viewMode={viewMode} />
+            ) : leaves.length === 0 ? (
               <div className="py-16 text-center">
                 <div className="mx-auto w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
                   <Calendar className="w-8 h-8 text-muted-foreground" />
@@ -123,9 +129,8 @@ export function MyLeavesPage() {
                 </Button>
               </div>
             ) : viewMode === "grid" ? (
-              /* Grid View */
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-6">
-                {filteredLeaves.map((leave) => (
+                {leaves.map((leave) => (
                   <MyLeaveCard
                     key={leave.id}
                     leave={leave}
@@ -135,7 +140,6 @@ export function MyLeavesPage() {
                 ))}
               </div>
             ) : (
-              /* Table View */
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead className="bg-muted/50 border-b">
@@ -161,7 +165,7 @@ export function MyLeavesPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredLeaves.map((leave) => (
+                    {leaves.map((leave) => (
                       <MyLeaveTableRow
                         key={leave.id}
                         leave={leave}
@@ -176,7 +180,6 @@ export function MyLeavesPage() {
           </CardContent>
         </Card>
 
-        {/* Dialogs */}
         <RequestLeaveSheet
           open={isRequestSheetOpen}
           onOpenChange={setIsRequestSheetOpen}

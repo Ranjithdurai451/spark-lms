@@ -11,43 +11,131 @@ import {
 } from "../lib/helpers/mail.helper";
 
 /* ──────────────── GET ALL LEAVES (Organization-wide) ──────────────── */
+// src/server/controllers/leave.controller.ts
 export const getAllLeaves = async (req: Request, res: Response) => {
   try {
     const orgId = req.user?.organization?.id;
-    console.log(orgId);
+    const {
+      page = "1",
+      limit = "20",
+      search = "",
+      status,
+      sortBy = "createdAt",
+      sortOrder = "desc",
+      getAll = "false",
+    } = req.query;
 
     if (!orgId) {
       return res.status(400).json({ message: "Organization not found." });
     }
 
-    const leaves = await prisma.leave.findMany({
-      where: { organizationId: orgId },
-      include: {
-        employee: {
-          select: {
-            id: true,
-            username: true,
-            email: true,
-            role: true,
-            managerId: true,
+    // Get all mode: return all without pagination
+    if (getAll == "true") {
+      const where: any = { organizationId: orgId };
+
+      if (status && status !== "all") {
+        where.status = (status as string).toUpperCase();
+      }
+
+      const leaves = await prisma.leave.findMany({
+        where,
+        include: {
+          employee: {
+            select: {
+              id: true,
+              username: true,
+              email: true,
+              role: true,
+              managerId: true,
+            },
+          },
+          approver: {
+            select: { id: true, username: true, email: true },
           },
         },
-        approver: {
-          select: { id: true, username: true, email: true },
+        orderBy: { [sortBy as string]: sortOrder },
+      });
+
+      return res.status(200).json({
+        message: "All leave requests fetched successfully.",
+        data: {
+          leaves,
         },
-      },
-      orderBy: { createdAt: "desc" },
-    });
+      });
+    }
+
+    // Paginated mode with filters
+    const pageNum = parseInt(page as string);
+    const limitNum = parseInt(limit as string);
+    const skip = (pageNum - 1) * limitNum;
+
+    // Build where clause
+    const where: any = { organizationId: orgId };
+
+    if (search) {
+      where.OR = [
+        { type: { contains: search as string, mode: "insensitive" } },
+        {
+          employee: {
+            username: { contains: search as string, mode: "insensitive" },
+          },
+        },
+        {
+          employee: {
+            email: { contains: search as string, mode: "insensitive" },
+          },
+        },
+      ];
+    }
+
+    if (status && status !== "all") {
+      where.status = (status as string).toUpperCase();
+    }
+
+    // Execute queries in parallel
+    const [total, leaves] = await prisma.$transaction([
+      prisma.leave.count({ where }),
+      prisma.leave.findMany({
+        where,
+        skip,
+        take: limitNum,
+        include: {
+          employee: {
+            select: {
+              id: true,
+              username: true,
+              email: true,
+              role: true,
+              managerId: true,
+            },
+          },
+          approver: {
+            select: { id: true, username: true, email: true },
+          },
+        },
+        orderBy: { [sortBy as string]: sortOrder },
+      }),
+    ]);
 
     res.status(200).json({
       message: "All leave requests fetched successfully.",
-      data: leaves,
+      data: {
+        leaves,
+        pagination: {
+          total,
+          page: pageNum,
+          limit: limitNum,
+          totalPages: Math.ceil(total / limitNum),
+          hasMore: pageNum * limitNum < total,
+        },
+      },
     });
   } catch (error) {
     console.error("❌ getAllLeaves error:", error);
     res.status(500).json({ message: "Failed to fetch leaves." });
   }
 };
+
 // GET /leaves/stats
 export const getAllLeaveStats = async (req: Request, res: Response) => {
   try {
@@ -80,22 +168,59 @@ export const getAllLeaveStats = async (req: Request, res: Response) => {
 /* ──────────────── GET MY LEAVES (For Employee) ──────────────── */
 export const getMyLeaves = async (req: Request, res: Response) => {
   try {
+    const {
+      status,
+      sortBy = "createdAt",
+      sortOrder = "desc",
+      getAll = "false",
+    } = req.query;
+
+    // Build where clause
+    const where: any = {
+      employeeId: req.user.id,
+      organizationId: req.user.organization.id,
+    };
+
+    if (status && status !== "all") {
+      where.status = (status as string).toUpperCase();
+    }
+
+    // Get all mode: return all without pagination
+    if (getAll == "true") {
+      const leaves = await prisma.leave.findMany({
+        where,
+        include: {
+          approver: {
+            select: { id: true, username: true, email: true },
+          },
+        },
+        orderBy: { [sortBy as string]: sortOrder },
+      });
+
+      return res.status(200).json({
+        message: "Your leave requests fetched successfully.",
+        data: {
+          leaves,
+        },
+      });
+    }
+
+    // Normal mode (without pagination for personal leaves)
     const leaves = await prisma.leave.findMany({
-      where: {
-        employeeId: req.user.id,
-        organizationId: req.user.organization.id,
-      },
+      where,
       include: {
         approver: {
           select: { id: true, username: true, email: true },
         },
       },
-      orderBy: { createdAt: "desc" },
+      orderBy: { [sortBy as string]: sortOrder },
     });
 
     res.status(200).json({
       message: "Your leave requests fetched successfully.",
-      data: leaves,
+      data: {
+        leaves,
+      },
     });
   } catch (error) {
     console.error("❌ getMyLeaves error:", error);
